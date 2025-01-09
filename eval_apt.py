@@ -2,9 +2,9 @@ from apt_pomdp import APTPOMDP
 from eval_util import EvalUtil
 
 if __name__ == '__main__':
-    N = 1
-    p_a = 0.5
-    k = 2
+    N = 6
+    p_a = 0.25
+    k = 12
     seed = 29123
     X = APTPOMDP.X(N=N)
     U = APTPOMDP.U()
