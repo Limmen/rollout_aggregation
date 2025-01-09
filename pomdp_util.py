@@ -1,3 +1,5 @@
+import time
+import math
 from multiprocessing import Pool
 import numpy as np
 import itertools
@@ -111,20 +113,21 @@ class POMDPUtil:
         return prob
 
     @staticmethod
-    def parallel_evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base: bool = True, l=1, N=100):
+    def parallel_evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base = True, l=1, N=100):
         """
         Runs N parallel sample estimates of J_mu and returns the mean
         """
+        inputs = [(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base, l, int(time.time()) + i) for i in range(N)]
         with Pool() as pool:
-            input = (mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base, l)
-            costs = pool.starmap(POMDPUtil.evaluate, [input]*N)
+            costs = pool.starmap(POMDPUtil.evaluate, inputs)
             return np.mean(costs)
 
     @staticmethod
-    def evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base: bool = True, l=1):
+    def evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base, l, seed):
         """
         Estimates J for a base or rollout policy
         """
+        np.random.seed(seed)
         x = np.random.choice(X, p=b0)
         b = b0
         Cost = 0
@@ -135,7 +138,7 @@ class POMDPUtil:
             else:
                 u = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b, C=C, J_mu=J_mu,
                                              gamma=gamma, B_n=B_n, l=l)[0]
-            Cost += C[x][u]
+            Cost += math.pow(gamma, t)*C[x][u]
             x = int(np.random.choice(X, p=P[u][x]))
             z = np.random.choice(O, p=Z[x])
             b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)

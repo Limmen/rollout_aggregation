@@ -1,6 +1,6 @@
 import time
 import csv
-import multiprocessing
+import numpy as np
 from policy_iteration import PI
 from value_iteration import VI
 from pomdp_util import POMDPUtil
@@ -10,6 +10,13 @@ class EvalUtil:
     """
     Util functions for evaluation
     """
+
+    @staticmethod
+    def set_seed(seed: int) -> None:
+        """
+        Sets the random seed
+        """
+        np.random.seed(seed)
 
     @staticmethod
     def print_mu(mu, J, B_n, b_n_0):
@@ -36,7 +43,7 @@ class EvalUtil:
 
         if pi:
             mu, J = PI.pi(
-                P=P_b, mu=mu_1, N=100, gamma=gamma, C=C_b, X=B_n_indices, U=U, x0=b_n_0, verbose=verbose)
+                P=P_b, mu=mu_1, N=10, gamma=gamma, C=C_b, X=B_n_indices, U=U, x0=b_n_0, verbose=verbose)
         else:
             mu, J = VI.vi(
                 P=P_b, epsilon=0.01, gamma=gamma, C=C_b, X=B_n_indices, U=U, verbose=verbose)
@@ -50,8 +57,8 @@ class EvalUtil:
         Runs the evaluation and saves the results to a csv file
         """
         with open(results_file, mode='w', newline='', encoding='utf-8') as file:
-            csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde", "l"])
-        ns = list(range(1, 50))
+            csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde", "l", "|U|", "|O|", "X"])
+        ns = list(range(1, 200))
         for n in ns:
             start = time.time()
             B_n = POMDPUtil.B_n(n=n, X=X)
@@ -60,14 +67,21 @@ class EvalUtil:
             C_b = POMDPUtil.C_b(B_n=B_n, X=X, U=U, C=C)
             T_mdp = time.time() - start
             start = time.time()
-            mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma, pi=False)
-            T_mu = time.time() - start
-            J_b0_mu = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
-                                         gamma=gamma, base=True)
-            J_b0_mu_tilde = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
-                                               gamma=gamma, base=False, l=l)
-            with open(results_file, mode='a', newline='', encoding='utf-8') as file:
-                csv.writer(file).writerow([n, len(B_n), f"{T_mdp:.2f}", f"{T_mu:.2f}", f"{J_b0_mu:.2f}",
-                                           f"{J_b0_mu_tilde:.2f}", l])
-                print(f"n: {n}, B_n_size: {len(B_n)}, T_mdp: {T_mdp:.3f}s, T_mu: {T_mu:.3f}s, J_b0_mu: {J_b0_mu:.2f},"
-                      f"J_b0_mu_tilde: {J_b0_mu_tilde:.2f}, l: {l}")
+            mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
+                                                    pi=False, verbose=False)
+            # print(b_n_0)
+            # print(J_mu)
+            # print(b0)
+            # print(B_n)
+            print(f"{J_mu[b_n_0]}, {len(B_n)}")
+            # T_mu = time.time() - start
+            # J_b0_mu = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
+            #                              gamma=gamma, base=True)
+            # print(J_b0_mu)
+            # J_b0_mu_tilde = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
+            #                                    gamma=gamma, base=False, l=l)
+            # with open(results_file, mode='a', newline='', encoding='utf-8') as file:
+            #     csv.writer(file).writerow([n, len(B_n), f"{T_mdp:.2f}", f"{T_mu:.2f}", f"{J_b0_mu:.2f}",
+            #                                f"{J_b0_mu_tilde:.2f}", l, len(U), len(O), len(X)])
+                # print(f"n: {n}, B_n_size: {len(B_n)}, T_mdp: {T_mdp:.3f}s, T_mu: {T_mu:.3f}s, J_b0_mu: {J_b0_mu:.2f},"
+                #       f"J_b0_mu_tilde: {J_b0_mu_tilde:.2f}, l: {l}")
