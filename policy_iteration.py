@@ -1,5 +1,5 @@
 import numpy as np
-from util import Util
+from general_util import GeneralUtil
 
 
 class PI:
@@ -17,7 +17,7 @@ class PI:
         for i in range(0, N):
             avg_return = PI.evaluate_policy(mu, P, C, X, U, x0)
             avg_returns.append(avg_return)
-            running_avg_J = Util.running_average(avg_returns, 10)
+            running_avg_J = GeneralUtil.running_average(avg_returns, 10)
             running_avg_returns.append(running_avg_J)
             if verbose:
                 print(f"[PI] i:{i}, avg_return: {avg_return}")

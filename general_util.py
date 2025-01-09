@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class Util:
+class GeneralUtil:
     """
     Class with utility functions
     """
