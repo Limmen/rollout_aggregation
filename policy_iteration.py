@@ -2,10 +2,30 @@ import numpy as np
 from util import Util
 
 
-class PolicyIteration:
+class PI:
     """
     Implements Howard's Policy Iteration for MDPs
     """
+
+    @staticmethod
+    def pi(P, mu, N, gamma, C, X, U, x0, verbose = False):
+        """
+        Policy iteration
+        """
+        avg_returns = []
+        running_avg_returns = []
+        for i in range(0, N):
+            avg_return = PI.evaluate_policy(mu, P, C, X, U, x0)
+            avg_returns.append(avg_return)
+            running_avg_J = Util.running_average(avg_returns, 10)
+            running_avg_returns.append(running_avg_J)
+            if verbose:
+                print(f"[PI] i:{i}, avg_return: {avg_return}")
+
+            J = PI.policy_evaluation(P, mu, C, gamma, X, U)
+            mu = PI.policy_improvement(P, C, gamma, J, X, U)
+
+        return mu, J
 
     @staticmethod
     def P_mu(P, mu, X):
@@ -34,8 +54,8 @@ class PolicyIteration:
         """
         Computes J_mu
         """
-        P_mu = PolicyIteration.P_mu(P, mu, X)
-        C_mu = PolicyIteration.C_mu(C, mu, X, U)
+        P_mu = PI.P_mu(P, mu, X)
+        C_mu = PI.C_mu(C, mu, X, U)
         I = np.identity(len(X))
         J_mu = np.dot(np.linalg.inv(I - (np.dot(gamma, P_mu))), C_mu)
         return np.array(J_mu)
@@ -53,25 +73,6 @@ class PolicyIteration:
                     control_values[u] += P[u][x][x_prime] * (C[x][u] + gamma * J[x_prime])
             mu_prime[x][np.argmin(control_values)] = 1
         return mu_prime
-
-    @staticmethod
-    def pi(P, mu, N, gamma, C, X, U, x0):
-        """
-        Policy iteration
-        """
-        avg_returns = []
-        running_avg_returns = []
-        for i in range(0, N):
-            avg_return = PolicyIteration.evaluate_policy(mu, P, C, X, U, x0)
-            avg_returns.append(avg_return)
-            running_avg_J = Util.running_average(avg_returns, 10)
-            running_avg_returns.append(running_avg_J)
-            print(f"[PI] i:{i}, avg_return: {avg_return}")
-
-            J = PolicyIteration.policy_evaluation(P, mu, C, gamma, X, U)
-            mu = PolicyIteration.policy_improvement(P, C, gamma, J, X, U)
-
-        return mu, J, avg_returns, running_avg_returns
 
     @staticmethod
     def evaluate_policy(mu, P, C, X, U, x0) -> float:

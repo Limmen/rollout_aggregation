@@ -2,6 +2,9 @@ import numpy as np
 
 
 class Util:
+    """
+    Class with utility functions
+    """
 
     @staticmethod
     def running_average(x, N):
