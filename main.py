@@ -44,15 +44,15 @@ if __name__ == '__main__':
     X = StoppingPOMDP.X()
     U = StoppingPOMDP.U()
     C = StoppingPOMDP.C(intrusion_stop_gain=10, intrusion_cost=1, stopping_cost=10)
-    O = StoppingPOMDP.O(100)
-    Z = StoppingPOMDP.Z(100)
-    P = StoppingPOMDP.P(intrusion_start_probability=0.1)
-    x0 = StoppingPOMDP.x0()
+    O = StoppingPOMDP.O(50)
+    Z = StoppingPOMDP.Z(50)
+    P = StoppingPOMDP.P(intrusion_start_probability=0.2)
     b0 = StoppingPOMDP.b0()
     gamma = 0.99
+    l = 2
     results_file = "results.csv"
     with open("results.csv", mode='w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde"])
+        writer = csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde", "l"])
 
     # Evaluation
     ns = list(range(1, 50))
@@ -64,14 +64,14 @@ if __name__ == '__main__':
         C_b = StoppingPOMDP.C_b(B_n=B_n, X=X, U=U, C=C)
         T_mdp = time.time() - start
         start = time.time()
-        mu, J_mu = compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma, pi=True)
+        mu, J_mu = compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma, pi=False)
         T_mu = time.time() - start
-        J_b0_mu = StoppingPOMDP.evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, x0=x0, b0=b0, B_n=B_n, J_mu=J_mu,
+        J_b0_mu = StoppingPOMDP.evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
                                          gamma=gamma, base=True)
-        J_b0_mu_tilde = StoppingPOMDP.evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, x0=x0, b0=b0, B_n=B_n, J_mu=J_mu,
-                                               gamma=gamma, base=False)
+        J_b0_mu_tilde = StoppingPOMDP.evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
+                                               gamma=gamma, base=False, l=l)
         with open("results.csv", mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file).writerow([n, len(B_n),f"{T_mdp:.2f}", f"{T_mu:.2f}", f"{J_b0_mu:.2f}",
-                                               f"{J_b0_mu_tilde:.2f}"])
-            print(f"n: {n}, B_n_size: {len(B_n)}, T_mdp: {T_mdp:.2f}s, T_mu: {T_mu:.2f}s, J_b0_mu: {J_b0_mu:.2f},"
-                  f"J_b0_mu_tilde: {J_b0_mu_tilde:.2f}")
+                                               f"{J_b0_mu_tilde:.2f}", l])
+            print(f"n: {n}, B_n_size: {len(B_n)}, T_mdp: {T_mdp:.3f}s, T_mu: {T_mu:.3f}s, J_b0_mu: {J_b0_mu:.2f},"
+                  f"J_b0_mu_tilde: {J_b0_mu_tilde:.2f}, l: {l}")

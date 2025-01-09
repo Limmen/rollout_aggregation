@@ -195,21 +195,22 @@ class StoppingPOMDP:
         return prob
 
     @staticmethod
-    def evaluate(mu, P, Z, C, O, X, U, x0, b0, B_n, J_mu, gamma, base: bool = True) -> float:
+    def evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base: bool = True, l=1, N=100):
         """
         Estimates J for a base or rollout policy
         """
         returns = []
-        for i in range(100):
-            x = x0
+        for i in range(N):
+            x = np.random.choice(X, p=b0)
             b = b0
             Cost = 0
             t = 0
-            while t <= 100:
+            while t <= 100 and x != 2:
                 if base:
                     u = StoppingPOMDP.base_policy(mu=mu, U=U, b=b, B_n=B_n)
                 else:
-                    u = StoppingPOMDP.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b, C=C, J_mu=J_mu, gamma=gamma, B_n=B_n)
+                    u = StoppingPOMDP.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b, C=C, J_mu=J_mu,
+                                                     gamma=gamma, B_n=B_n, l=l)[0]
                 Cost += C[x][u]
                 x = int(np.random.choice(X, p=P[u][x]))
                 z = np.random.choice(O, p=Z[x])
@@ -227,7 +228,7 @@ class StoppingPOMDP:
         return np.random.choice(U, p=mu[B_n.index(StoppingPOMDP.nearest_neighbor(B_n=B_n, b=b))])
 
     @staticmethod
-    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n):
+    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l):
         """
         Returns \tilde{\mu}[b]
         """
@@ -237,9 +238,14 @@ class StoppingPOMDP:
                 P_b_z_u = StoppingPOMDP.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u)
                 if P_b_z_u > 0:
                     b_prime = StoppingPOMDP.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
-                    Q_b[u] += P_b_z_u * (StoppingPOMDP.expected_cost(b=b, u=u, C=C, X=X) +
-                                         gamma * J_mu[B_n.index(StoppingPOMDP.nearest_neighbor(B_n=B_n, b=b_prime))])
-        return int(np.argmin(Q_b))
+                    if l == 1:
+                        J_mu_val = J_mu[B_n.index(StoppingPOMDP.nearest_neighbor(B_n=B_n, b=b_prime))]
+                    else:
+                        J_mu_val = StoppingPOMDP.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
+                                                                C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l-1)[1]
+                    Q_b[u] += P_b_z_u * (StoppingPOMDP.expected_cost(b=b, u=u, C=C, X=X) + gamma * J_mu_val)
+        u_star = int(np.argmin(Q_b))
+        return u_star, Q_b[u_star]
 
     @staticmethod
     def pomdp_solver_file(gamma, X, U, O, P, b0, Z, C):
