@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 import numpy as np
 import itertools
 
@@ -46,14 +47,12 @@ class POMDPUtil:
         return B_n[nearest_index]
 
     @staticmethod
-    def B_n(n, X, stopping = False):
+    def B_n(n, X):
         """
         Creates the aggregate belief space B_n, where n is the resolution
         """
         combinations = [k for k in itertools.product(range(n + 1), repeat=len(X)) if sum(k) == n]
         belief_points = [list(float(k_i / n) for k_i in k) for k in combinations]
-        if stopping:
-            belief_points = list(filter(lambda x: x[-1] == 1.0 or x[-1] == 0.0, belief_points))
         return belief_points
 
     @staticmethod
@@ -112,30 +111,36 @@ class POMDPUtil:
         return prob
 
     @staticmethod
-    def evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base: bool = True, l=1, N=100):
+    def parallel_evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base: bool = True, l=1, N=100):
+        """
+        Runs N parallel sample estimates of J_mu and returns the mean
+        """
+        with Pool() as pool:
+            input = (mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base, l)
+            costs = pool.starmap(POMDPUtil.evaluate, [input]*N)
+            return np.mean(costs)
+
+    @staticmethod
+    def evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base: bool = True, l=1):
         """
         Estimates J for a base or rollout policy
         """
-        returns = []
-        for i in range(N):
-            x = np.random.choice(X, p=b0)
-            b = b0
-            Cost = 0
-            t = 0
-            while t <= 100:
-                if base:
-                    u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
-                else:
-                    u = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b, C=C, J_mu=J_mu,
-                                                 gamma=gamma, B_n=B_n, l=l)[0]
-                Cost += C[x][u]
-                x = int(np.random.choice(X, p=P[u][x]))
-                z = np.random.choice(O, p=Z[x])
-                b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
-                t += 1
-            returns.append(Cost)
-        avg_return = np.mean(returns)
-        return float(avg_return)
+        x = np.random.choice(X, p=b0)
+        b = b0
+        Cost = 0
+        t = 0
+        while t <= 100:
+            if base:
+                u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
+            else:
+                u = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b, C=C, J_mu=J_mu,
+                                             gamma=gamma, B_n=B_n, l=l)[0]
+            Cost += C[x][u]
+            x = int(np.random.choice(X, p=P[u][x]))
+            z = np.random.choice(O, p=Z[x])
+            b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
+            t += 1
+        return Cost
 
     @staticmethod
     def base_policy(mu, U, b, B_n):

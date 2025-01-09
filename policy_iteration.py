@@ -24,7 +24,6 @@ class PI:
 
             J = PI.policy_evaluation(P, mu, C, gamma, X, U)
             mu = PI.policy_improvement(P, C, gamma, J, X, U)
-
         return mu, J
 
     @staticmethod

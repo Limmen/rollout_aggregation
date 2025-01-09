@@ -1,5 +1,6 @@
 import time
 import csv
+import multiprocessing
 from policy_iteration import PI
 from value_iteration import VI
 from pomdp_util import POMDPUtil
@@ -44,7 +45,7 @@ class EvalUtil:
         return mu, J
 
     @staticmethod
-    def eval(results_file, X, b0, U, O, P, Z, C, gamma, l, stopping=False):
+    def eval(results_file, X, b0, U, O, P, Z, C, gamma, l):
         """
         Runs the evaluation and saves the results to a csv file
         """
@@ -53,7 +54,7 @@ class EvalUtil:
         ns = list(range(1, 50))
         for n in ns:
             start = time.time()
-            B_n = POMDPUtil.B_n(n=n, X=X, stopping=stopping)
+            B_n = POMDPUtil.B_n(n=n, X=X)
             b_n_0 = B_n.index(b0)
             P_b = POMDPUtil.P_b(B_n=B_n, X=X, U=U, O=O, P=P, Z=Z)
             C_b = POMDPUtil.C_b(B_n=B_n, X=X, U=U, C=C)
@@ -61,9 +62,9 @@ class EvalUtil:
             start = time.time()
             mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma, pi=False)
             T_mu = time.time() - start
-            J_b0_mu = POMDPUtil.evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
+            J_b0_mu = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
                                          gamma=gamma, base=True)
-            J_b0_mu_tilde = POMDPUtil.evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
+            J_b0_mu_tilde = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
                                                gamma=gamma, base=False, l=l)
             with open(results_file, mode='a', newline='', encoding='utf-8') as file:
                 csv.writer(file).writerow([n, len(B_n), f"{T_mdp:.2f}", f"{T_mu:.2f}", f"{J_b0_mu:.2f}",

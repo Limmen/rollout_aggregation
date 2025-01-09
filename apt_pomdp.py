@@ -68,6 +68,9 @@ class APTPOMDP:
 
     @staticmethod
     def f(x_prime, x, u, N, p_a):
+        """
+        Computes P(x_prime | x,u)
+        """
         if u == 1 and x_prime == 0:
             return 1
         if u == 0 and x == N and x_prime == N:

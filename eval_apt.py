@@ -16,4 +16,4 @@ if __name__ == '__main__':
     gamma = 0.99
     l = 1
     results_file = "apt_results.csv"
-    EvalUtil.eval(results_file=results_file, X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, stopping=True)
+    EvalUtil.eval(results_file=results_file, X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l)
