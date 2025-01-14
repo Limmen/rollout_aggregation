@@ -1,102 +1,182 @@
 import numpy as np
+import random
 from scipy.stats import betabinom
 import math
+import itertools
 
 
-class APTPOMDP:
+class POMDP:
     """
-    The APT POMDP from (Hammar, Li, Stadler, Zhu 2024 -
-    Automated Security Response through Online Learning with Adaptive Conjectures)
+    Example POMDP for Cybersecurity
     """
 
     @staticmethod
-    def b0(N):
+    def erdos_renyi_graph(N, p_c):
         """
-        :return: the initial belief
+        Generates the adjacency matrix of a random Erdös-Renyi graph
         """
-        b0 = [0]*(N+1)
-        b0[0]=1
+        adjacency_matrix = np.zeros((N, N), dtype=int)
+        for i in range(N):
+            for j in range(i + 1, N):  # Only consider the upper triangle to avoid duplicate edges
+                if random.random() < p_c:
+                    adjacency_matrix[i][j] = 1
+                    adjacency_matrix[j][i] = 1  # Ensure the graph is undirected
+        return adjacency_matrix
+
+    @staticmethod
+    def b0(N, X, vec_to_x):
+        """
+        The initial belief
+        """
+        b0 = [0] * (len(X))
+        x0 = POMDP.x0(X=X, N=N, vec_to_x=vec_to_x)
+        b0[x0] = 1
         return b0
 
     @staticmethod
-    def x0():
+    def x0(X, N, vec_to_x):
         """
-        :return: the initial state
+        The initial state
         """
-        return 0
+        return X.index(vec_to_x[tuple([0] * N)])
 
     @staticmethod
     def X(N):
         """
-        The state space
+        The state space, each server can be in two states: 0 (healthy) and 1 (compromised)
         """
-        return list(range(N+1))
+        vector_space = list(itertools.product(*([[0, 1]] * N)))
+        x = 0
+        X = []
+        x_to_vec = {}
+        vec_to_x = {}
+        for x_vec in vector_space:
+            X.append(x)
+            x_to_vec[x] = x_vec
+            vec_to_x[tuple(x_vec)] = x
+            x += 1
+        return X, x_to_vec, vec_to_x
 
     @staticmethod
-    def U():
+    def U(N: int):
         """
-        The control space, 0 (continue), 1 (stop)
+        The control space, 0 (continue), 1 (stop) per server (N)
         """
-        return [0, 1]
+        vector_space = list(itertools.product(*([[0, 1]] * N)))
+        u = 0
+        U = []
+        u_to_vec = {}
+        vec_to_u = {}
+        for u_vec in vector_space:
+            U.append(u)
+            u_to_vec[u] = u_vec
+            vec_to_u[tuple(u_vec)] = u
+            u += 1
+        return U, u_to_vec, vec_to_u
 
     @staticmethod
-    def O(n):
+    def O(n, N):
         """
-        The observation space
+        The observation space (0,...n) for each server i in N.
         """
-        return list(range(n + 1))
+        vector_space = list(itertools.product(*([range(n + 1)] * N)))
+        o = 0
+        O = []
+        o_to_vec = {}
+        vec_to_o = {}
+        for o_vec in vector_space:
+            O.append(o)
+            o_to_vec[o] = o_vec
+            vec_to_o[tuple(o_vec)] = o
+            o += 1
+        return O, o_to_vec, vec_to_o
 
     @staticmethod
-    def cost_function(x, u):
+    def cost_function(x, u, x_to_vec, u_to_vec, eta):
         """
         Computes c(x,u)
         """
-        if x > 0:
-            return math.pow(x, 5/4)*(1-u) -u
-        else:
-            return math.pow(x, 5/4)*(1-u) + u
+        x_vec = list(x_to_vec[x])
+        u_vec = list(u_to_vec[u])
+        compromised_costs = 0
+        response_costs = 0
+        for i in range(len(u_vec)):
+            compromised_costs += x_vec[i] * (1 - u_vec[i])
+            if x_vec[i] == 1:
+                response_costs -= u_vec[i]
+            else:
+                response_costs += u_vec[i]
+        return eta * compromised_costs + response_costs
 
     @staticmethod
-    def C(X, U):
+    def C(X, U, x_to_vec, u_to_vec, eta):
         """
         A |X|x|U| cost matrix
         """
         C = []
         for x in X:
-            C.append([APTPOMDP.cost_function(x=x, u=u) for u in U])
+            C.append([POMDP.cost_function(x=x, u=u, x_to_vec=x_to_vec, u_to_vec=u_to_vec, eta=eta) for u in U])
         return C
 
     @staticmethod
-    def f(x_prime, x, u, N, p_a):
+    def f(x_prime, x, u, N, p_a, x_to_vec, u_to_vec, A):
         """
         Computes P(x_prime | x,u)
         """
+        x_vec = list(x_to_vec[x])
+        x_prime_vec = list(x_to_vec[x_prime])
+        u_vec = list(u_to_vec[u])
+        probabilities = []
+        for i in range(N):
+            num_compromised_neighbors = POMDP.get_num_compromised_neighbors(i=i, A=A, x_vec=x_vec)
+            probabilities.append(POMDP.f_local(x_prime=x_prime_vec[i], x=x_vec[i], u=u_vec[i], p_a=p_a,
+                                               num_compromised_neighbors=num_compromised_neighbors))
+        return math.prod(probabilities)
+
+    @staticmethod
+    def get_num_compromised_neighbors(i, A, x_vec):
+        """
+        Gets the number of compromised neighbors
+        """
+        num_compromised = 0
+        for j in range(len(A[i])):
+            if A[i][j] == 1:
+                num_compromised += x_vec[j]
+        return num_compromised
+
+    @staticmethod
+    def f_local(x_prime, x, u, p_a, num_compromised_neighbors):
+        """
+        Transition function of a single node, P(x_prime_i | x_i, u_i)
+        """
+        compromise_probability = min(1.0, p_a * (num_compromised_neighbors + 1))
         if u == 1 and x_prime == 0:
             return 1
-        if u == 0 and x == N and x_prime == N:
+        if u == 0 and x == 1 and x_prime == 1:
             return 1
-        if u == 0 and x < N and x_prime == x:
-            return 1-p_a
-        if u == 0 and x < N and x_prime == (x + 1):
-            return p_a
+        if u == 0 and x == 0 and x_prime == 0:
+            return 1 - compromise_probability
+        if u == 0 and x == 0 and x_prime == 1:
+            return compromise_probability
         return 0
 
     @staticmethod
-    def P(p_a: float, X, U):
+    def P(p_a, X, U, x_to_vec, u_to_vec, N, A):
         """
         A |U|x|X|x|X| transition tensor
         """
         P = []
-        N = len(X)-1
         for u in U:
             u_p = []
             for x in X:
-                u_p.append([APTPOMDP.f(x_prime, x, u, N, p_a) for x_prime in X])
+                distribution = [POMDP.f(x_prime, x, u, N, p_a, x_to_vec, u_to_vec, A) for x_prime in X]
+                assert round(sum(distribution), 2) == 1
+                u_p.append(distribution)
             P.append(u_p)
         return P
 
     @staticmethod
-    def Z(n, X):
+    def Z(n, X, N, x_to_vec, o_to_vec, O):
         """
         A |X|x|O| tensor, where |O|=n+1
         """
@@ -111,8 +191,17 @@ class APTPOMDP:
             no_intrusion_dist.append(no_intrusion_rv.pmf(i))
         Z = []
         for x in X:
-            if x == 0:
-                Z.append(no_intrusion_dist)
-            else:
-                Z.append(intrusion_dist)
+            x_vec = x_to_vec[x]
+            x_distribution = []
+            for o in O:
+                o_vec = o_to_vec[o]
+                probs = []
+                for i in range(N):
+                    if x_vec[i] == 0:
+                        probs.append(no_intrusion_dist[o_vec[i]])
+                    else:
+                        probs.append(intrusion_dist[o_vec[i]])
+                x_distribution.append(math.prod(probs))  # Conditional independence -> product
+            assert round(sum(x_distribution), 2) == 1
+            Z.append(x_distribution)
         return Z

@@ -1,19 +1,22 @@
-from apt_pomdp import APTPOMDP
+from apt_pomdp import POMDP
 from eval_util import EvalUtil
 
 if __name__ == '__main__':
-    N = 6
-    p_a = 0.25
-    k = 12
+    N = 3
+    p_a = 0.2
+    p_c = 0.2
+    k = 8
     seed = 29123
-    X = APTPOMDP.X(N=N)
-    U = APTPOMDP.U()
-    C = APTPOMDP.C(X=X, U=U)
-    O = APTPOMDP.O(k)
-    Z = APTPOMDP.Z(k, X=X)
-    P = APTPOMDP.P(p_a=p_a, X=X, U=U)
-    b0 = APTPOMDP.b0(N=N)
-    gamma=0.75
+    eta = 2
+    A = POMDP.erdos_renyi_graph(N=N, p_c=p_c)
+    X, x_to_vec, vec_to_x = POMDP.X(N=N)
+    U, u_to_vec, vec_to_u = POMDP.U(N=N)
+    C = POMDP.C(X=X, U=U, x_to_vec=x_to_vec, u_to_vec=u_to_vec, eta=eta)
+    O, o_to_vec, vec_to_o = POMDP.O(k, N=N)
+    Z = POMDP.Z(k, X=X, N=N, x_to_vec=x_to_vec, o_to_vec=o_to_vec, O=O)
+    P = POMDP.P(p_a=p_a, X=X, U=U, x_to_vec=x_to_vec, u_to_vec=u_to_vec, N=N, A=A)
+    b0 = POMDP.b0(N=N, X=X, vec_to_x=vec_to_x)
+    gamma=0.99
     l = 1
     results_file = "apt_results.csv"
-    EvalUtil.eval(results_file=results_file, X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l)
+    EvalUtil.eval(results_file=results_file, X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec)

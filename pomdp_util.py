@@ -1,8 +1,10 @@
 import time
+import random
 import math
 from multiprocessing import Pool
 import numpy as np
 import itertools
+from collections import Counter
 
 
 class POMDPUtil:
@@ -113,7 +115,7 @@ class POMDPUtil:
         return prob
 
     @staticmethod
-    def parallel_evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base = True, l=1, N=100):
+    def parallel_evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base=True, l=1, N=100):
         """
         Runs N parallel sample estimates of J_mu and returns the mean
         """
@@ -138,7 +140,7 @@ class POMDPUtil:
             else:
                 u = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b, C=C, J_mu=J_mu,
                                              gamma=gamma, B_n=B_n, l=l)[0]
-            Cost += math.pow(gamma, t)*C[x][u]
+            Cost += math.pow(gamma, t) * C[x][u]
             x = int(np.random.choice(X, p=P[u][x]))
             z = np.random.choice(O, p=Z[x])
             b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
@@ -203,3 +205,65 @@ class POMDPUtil:
                     for o in O:
                         file_str = file_str + f"R: {u} : {x} : {x_prime} : {o} {C[x][u]:.80f}\n"
         return file_str
+
+    @staticmethod
+    def evaluate_particle_filter_parallel(max_num_particles, Z, O, P, b0, U, X, N):
+        """
+        Parallel evaluation of the accuracy of a particle filter by comparing it with the true belief
+        """
+        inputs = [(max_num_particles, Z, O, P, b0, U, X, int(time.time()) + i) for i in range(N)]
+        with Pool() as pool:
+            errors = pool.starmap(POMDPUtil.evaluate_particle_filter, inputs)
+            std = np.std(errors)
+            return np.mean(errors), std
+
+    @staticmethod
+    def evaluate_particle_filter(max_num_particles, Z, O, P, b0, U, X, seed):
+        """
+        Evaluates the accuracy of a particle filter by comparing it with the true belief
+        """
+        np.random.seed(seed)
+        x = np.random.choice(X, p=b0)
+        b = b0
+        t = 0
+        particles = [x]
+        errors = []
+        while t <= 25:
+            u = random.choice(U)
+            # u = 0
+            x = int(np.random.choice(X, p=P[u][x]))
+            z = np.random.choice(O, p=Z[x])
+            b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
+            particles = POMDPUtil.particle_filter(particles=particles, max_num_particles=max_num_particles, P=P, o=z,
+                                                  u=u, X=X, O=O, Z=Z)
+            errors.append(POMDPUtil.compare_belief_and_particles(b=b, particles=particles))
+            t += 1
+        return float(np.mean(errors))
+
+    @staticmethod
+    def compare_belief_and_particles(b, particles):
+        """
+        Computes the difference between a given belief b and a given particle filter
+        """
+        counter = Counter(particles)
+        particle_b = []
+        for i in range(len(b)):
+            if i in counter:
+                particle_b.append(counter[i] / len(particles))
+            else:
+                particle_b.append(0)
+        return np.linalg.norm(np.array(particle_b) - np.array(b), axis=0)
+
+    @staticmethod
+    def particle_filter(particles, max_num_particles, P, o, u, X, O, Z):
+        """
+        Implements a particle filter
+        """
+        new_particles = []
+        while len(new_particles) < max_num_particles:
+            x = random.choice(particles)
+            x_prime = np.random.choice(X, p=P[u][x])
+            o_hat = np.random.choice(O, p=Z[x_prime])
+            if o == o_hat:
+                new_particles.append(x_prime)
+        return new_particles
