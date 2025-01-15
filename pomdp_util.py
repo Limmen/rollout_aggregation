@@ -115,37 +115,45 @@ class POMDPUtil:
         return prob
 
     @staticmethod
-    def parallel_evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base=True, l=1, N=100):
+    def parallel_monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, initial_controls, N=100, M=100):
         """
-        Runs N parallel sample estimates of J_mu and returns the mean
+        Runs N parallel evaluation episodes following mu. Then it returns
+        the average cost as well as the list of episodes
+        (each episode is a list of tuples (b_0,u_0,c_0),(b_1,u_1,c_1),..)
         """
-        inputs = [(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base, l, int(time.time()) + i) for i in range(N)]
+        inputs = [(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, initial_controls,
+                   int(time.time()) + i) for i in range(M)]
         with Pool() as pool:
-            costs = pool.starmap(POMDPUtil.evaluate, inputs)
-            return np.mean(costs)
+            results = pool.starmap(POMDPUtil.monte_carlo_evaluate, inputs)
+            costs = list(map(lambda res: res[0], results))
+            episodes = list(map(lambda res: res[1], results))
+            return np.mean(costs), episodes
 
     @staticmethod
-    def evaluate(mu, P, Z, C, O, X, U, b0, B_n, J_mu, gamma, base, l, seed):
+    def monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, initial_controls, seed):
         """
-        Estimates J for a base or rollout policy
+        Monte-Carlo evaluation to estimate J for a base or rollout policy
         """
         np.random.seed(seed)
         x = np.random.choice(X, p=b0)
         b = b0
         Cost = 0
         t = 0
-        while t <= 100:
-            if base:
-                u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
+        episode = []
+        while t <= N-1:
+            if t < len(initial_controls):
+                u = initial_controls[t]
             else:
-                u = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b, C=C, J_mu=J_mu,
-                                             gamma=gamma, B_n=B_n, l=l)[0]
+                u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
             Cost += math.pow(gamma, t) * C[x][u]
+            episode.append((B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b)), u, C[x][u]))
             x = int(np.random.choice(X, p=P[u][x]))
             z = np.random.choice(O, p=Z[x])
             b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
             t += 1
-        return Cost
+        if J_mu is not None:
+            Cost += math.pow(gamma, N)*J_mu[B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b))]
+        return (Cost, episode)
 
     @staticmethod
     def base_policy(mu, U, b, B_n):
@@ -155,22 +163,50 @@ class POMDPUtil:
         return np.random.choice(U, p=mu[B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b))])
 
     @staticmethod
-    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l):
+    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l, mu):
         """
         Returns \tilde{\mu}[b]
         """
         Q_b = np.zeros(len(U))
         for u in U:
+            print(f"{u}/{len(U)}, l: {l}")
             for z in O:
+                print(f"{z}/{len(O)}, l: {l}")
                 P_b_z_u = POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u)
                 if P_b_z_u > 0:
                     b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
                     if l == 1:
-                        J_mu_val = J_mu[B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b_prime))]
+                        J_mu_val, _ = POMDPUtil.parallel_monte_carlo_evaluate(
+                            mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b, B_n=B_n, J_mu=None, gamma=gamma,
+                            N=500, M=5000, initial_controls=[])
                     else:
                         J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
-                                                            C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1)[1]
+                                                            C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu)[1]
                     Q_b[u] += P_b_z_u * (POMDPUtil.expected_cost(b=b, u=u, C=C, X=X) + gamma * J_mu_val)
+        u_star = int(np.argmin(Q_b))
+        return u_star, Q_b[u_star]
+
+
+    @staticmethod
+    def rollout_certainty_equivalence_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l, mu):
+        """
+        Returns \tilde{\mu}[b]
+        """
+        Q_b = np.zeros(len(U))
+        for u in U:
+            print(f"{u}/{len(U)}, l: {l}")
+            probs = [POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) for z in O]
+            max_prob = int(np.argmax(probs))
+            z = O[max_prob]
+            b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
+            if l == 1:
+                J_mu_val, _ = POMDPUtil.parallel_monte_carlo_evaluate(
+                    mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b, B_n=B_n, J_mu=J_mu, gamma=gamma,
+                    N=500, M=100, initial_controls=[])
+            else:
+                J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
+                                                    C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu)[1]
+            Q_b[u] += POMDPUtil.expected_cost(b=b, u=u, C=C, X=X) + gamma * J_mu_val
         u_star = int(np.argmin(Q_b))
         return u_star, Q_b[u_star]
 
@@ -230,7 +266,6 @@ class POMDPUtil:
         errors = []
         while t <= 25:
             u = random.choice(U)
-            # u = 0
             x = int(np.random.choice(X, p=P[u][x]))
             z = np.random.choice(O, p=Z[x])
             b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
@@ -267,3 +302,21 @@ class POMDPUtil:
             if o == o_hat:
                 new_particles.append(x_prime)
         return new_particles
+
+    @staticmethod
+    def monte_carlo_policy_evaluation(episodes, gamma, B_n, B_n_indices):
+        """
+        Implements the first visit Monte-Carlo policy evaluation method (Sutton and Barton, p. 92)
+        """
+        returns = {b: [] for b in range(len(B_n))}
+        V_pi = np.zeros(len(B_n))
+        for episode in episodes:
+            G = 0
+            for t in reversed(range(len(episode))):
+                b, u, c = episode[t]
+                G = gamma * G + c
+                if all(b != episode[k][0] for k in range(0, t)):  # First-visit Monte Carlo
+                    returns[b].append(G)
+        for b in B_n_indices:
+            V_pi[b] = np.mean(returns[b])
+        return V_pi

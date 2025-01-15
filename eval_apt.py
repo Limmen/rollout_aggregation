@@ -2,10 +2,10 @@ from apt_pomdp import POMDP
 from eval_util import EvalUtil
 
 if __name__ == '__main__':
-    N = 3
+    N = 1
     p_a = 0.2
     p_c = 0.2
-    k = 8
+    k = 10
     seed = 29123
     eta = 2
     A = POMDP.erdos_renyi_graph(N=N, p_c=p_c)
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     Z = POMDP.Z(k, X=X, N=N, x_to_vec=x_to_vec, o_to_vec=o_to_vec, O=O)
     P = POMDP.P(p_a=p_a, X=X, U=U, x_to_vec=x_to_vec, u_to_vec=u_to_vec, N=N, A=A)
     b0 = POMDP.b0(N=N, X=X, vec_to_x=vec_to_x)
-    gamma=0.99
+    gamma=0.75
     l = 1
     results_file = "apt_results.csv"
     EvalUtil.eval(results_file=results_file, X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec)

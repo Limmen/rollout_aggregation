@@ -58,43 +58,37 @@ class EvalUtil:
         """
         # with open(results_file, mode='w', newline='', encoding='utf-8') as file:
         #     csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde", "l", "|U|", "|O|", "X"])
-
-        for i in range(51):
-            error, std = POMDPUtil.evaluate_particle_filter_parallel(max_num_particles=i, Z=Z, O=O, P=P, b0=b0, U=U,
-                                                                X=X, N=10)
-            print(f"{i} {error} {error + std} {error - std}")
-        # ns = list(range(1, 200))
-        from general_util import GeneralUtil
-        # differences = []
-        # ns = [1]
-        # for n in ns:
-            # start = time.time()
-            # B_n = POMDPUtil.B_n(n=n, X=X)
-            # b_n_0 = B_n.index(b0)
-            # P_b = POMDPUtil.P_b(B_n=B_n, X=X, U=U, O=O, P=P, Z=Z)
-            # C_b = POMDPUtil.C_b(B_n=B_n, X=X, U=U, C=C)
+        ns = list(range(1, 200))
+        for n in ns:
+            start = time.time()
+            B_n = POMDPUtil.B_n(n=n, X=X)
+            B_n_indices = []
+            for i in range(len(B_n)):
+                B_n_indices.append(i)
+            b_n_0 = B_n.index(b0)
+            P_b = POMDPUtil.P_b(B_n=B_n, X=X, U=U, O=O, P=P, Z=Z)
+            C_b = POMDPUtil.C_b(B_n=B_n, X=X, U=U, C=C)
             # T_mdp = time.time() - start
+            mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
+                                                    pi=False, verbose=False, u_to_vec=u_to_vec)
             # start = time.time()
-            # mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
-            #                                         pi=False, verbose=False, u_to_vec=u_to_vec)
-            # for i in range(300):
-            #     error = POMDPUtil.evaluate_particle_filter_parallel(max_num_particles=i, Z=Z, O=O, P=P, b0=b0, U=U,
-            #                                                         X=X, N=100)
-            #     print(f"{i} {error}")
-                # differences.append(abs(J_mu[b_n_0] - 0.37699))
-                # print(b_n_0)
-                # print(J_mu)
-                # print(b0)
-                # print(B_n)
-                # print(f"{n} {GeneralUtil.running_average(differences, N=20)}")
-                # print(f"n: {n}, results:")
-                # belief_space = np.linspace(0.0, 1, int(1.0 / 0.01))
-                # for i, b in enumerate(B_n):
-                #     # val = np.min([np.dot([1-b, b], list(-np.array(alpha[1]))) for alpha in alpha_vectors])
-                #     print(f"{b[1]} {J_mu[i]}")
-                # print(" ")
-
+            J_b0_mu, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=500, M=5000,
+                initial_controls = [])
+            V_pi = POMDPUtil.monte_carlo_policy_evaluation(episodes=episodes, gamma=gamma, B_n=B_n,
+                                                           B_n_indices=B_n_indices)
+            u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
+                                                     gamma=gamma, l=l)
+            # u, _ = POMDPUtil.rollout_certainty_equivalence_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
+            #                                 gamma=gamma, l=l)
+            J_b0_mu_tilde, _ = POMDPUtil.parallel_monte_carlo_evaluate(
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma,
+                N=500, M=5000, initial_controls=[u])
+            print(f"{n} {round(J_b0_mu, 3)} {round(J_b0_mu_tilde, 3)}")
+            # print(V_pi)
+            # print(f"{n} {abs(J_mu[b_n_0]-J_b0_mu)}")
             # T_mu = time.time() - start
+            # print(f"{n} {time.time() - start}")
             # J_b0_mu = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
             #                              gamma=gamma, base=True)
             # print(J_b0_mu)
