@@ -51,7 +51,8 @@ class EvalUtil:
         return mu, J
 
     @staticmethod
-    def exact_eval(X, b0, U, O, P, Z, C, gamma, l, u_to_vec, N, rollout_length, rollout_mc_samples, monte_carlo):
+    def exact_eval(X, b0, U, O, P, Z, C, gamma, l, u_to_vec, N, rollout_length, rollout_mc_samples, monte_carlo,
+                   certainty_equivalence):
         """
         Runs the exact evaluation
         """
@@ -73,7 +74,8 @@ class EvalUtil:
             J_b0_mu = {}
             J_b0_mu_tilde = POMDPUtil.exact_eval(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=J_b0_mu, gamma=gamma, N=N, base_policy=False,
-                l=l, t=0, certainty_equivalence=False, rollout_horizon=N, rollout_length=rollout_length, J={},
+                l=l, t=0, certainty_equivalence=certainty_equivalence, rollout_horizon=N,
+                rollout_length=rollout_length, J={},
                 monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples)
             # print(f"{n} {round(J_b0_mu[(tuple(b0), 0)], 3)} {round(J_b0_mu_tilde[(tuple(b0), 0)], 3)}")
 

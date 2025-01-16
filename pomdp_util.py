@@ -272,11 +272,12 @@ class POMDPUtil:
                                   np.array(POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)) for z in O], axis=0)
                 if l == 1:
                     if not monte_carlo:
-                        J_mu_val = POMDPUtil.exact_eval(
+                        J = POMDPUtil.exact_eval(
                             mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=J_mu, gamma=gamma,
                             N=N, base_policy=True, l=-1, t=t + 1, certainty_equivalence=certainty_equivalence,
                             rollout_horizon=rollout_horizon, rollout_length=rollout_length, J={},
                             monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples)
+                        J_mu_val = J[(tuple(b_prime), t + 1)]
                     else:
                         J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
                             mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, gamma=gamma, J_mu=J_mu,
