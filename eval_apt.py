@@ -5,7 +5,7 @@ if __name__ == '__main__':
     N = 1
     p_a = 0.2
     p_c = 0.2
-    k = 10
+    k = 1
     seed = 29123
     eta = 2
     A = POMDP.erdos_renyi_graph(N=N, p_c=p_c)

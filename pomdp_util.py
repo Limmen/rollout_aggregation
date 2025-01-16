@@ -115,13 +115,31 @@ class POMDPUtil:
         return prob
 
     @staticmethod
-    def parallel_monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, initial_controls, N=100, M=100):
+    def monte_carlo_evaluate_sequential(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, base_policy, l, N=100, M=100):
         """
         Runs N parallel evaluation episodes following mu. Then it returns
         the average cost as well as the list of episodes
         (each episode is a list of tuples (b_0,u_0,c_0),(b_1,u_1,c_1),..)
         """
-        inputs = [(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, initial_controls,
+        costs = []
+        episodes = []
+        for i in range(M):
+            seed = int(time.time()) + i
+            result = POMDPUtil.monte_carlo_evaluate(
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, gamma=gamma, N=N, base_policy=base_policy,
+                l=l, seed=seed, J_mu=J_mu)
+            costs.append(result[0])
+            episodes.append(result[1])
+        return np.mean(costs), episodes
+
+    @staticmethod
+    def parallel_monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, base_policy, l, N=100, M=100):
+        """
+        Runs N parallel evaluation episodes following mu. Then it returns
+        the average cost as well as the list of episodes
+        (each episode is a list of tuples (b_0,u_0,c_0),(b_1,u_1,c_1),..)
+        """
+        inputs = [(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, base_policy, l,
                    int(time.time()) + i) for i in range(M)]
         with Pool() as pool:
             results = pool.starmap(POMDPUtil.monte_carlo_evaluate, inputs)
@@ -130,7 +148,7 @@ class POMDPUtil:
             return np.mean(costs), episodes
 
     @staticmethod
-    def monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, initial_controls, seed):
+    def monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, base_policy, l, seed):
         """
         Monte-Carlo evaluation to estimate J for a base or rollout policy
         """
@@ -141,10 +159,13 @@ class POMDPUtil:
         t = 0
         episode = []
         while t <= N-1:
-            if t < len(initial_controls):
-                u = initial_controls[t]
-            else:
+            if base_policy:
                 u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
+            else:
+                u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
+                                                gamma=gamma, l=l)
+                print(f"{t}/{N-1}")
+                # print(f"{t}/{N-1}, u_tilde: {u}, u_base: {POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)}, b: {b}")
             Cost += math.pow(gamma, t) * C[x][u]
             episode.append((B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b)), u, C[x][u]))
             x = int(np.random.choice(X, p=P[u][x]))
@@ -169,21 +190,23 @@ class POMDPUtil:
         """
         Q_b = np.zeros(len(U))
         for u in U:
-            print(f"{u}/{len(U)}, l: {l}")
+            # print(f"{u}/{len(U)}, l: {l}")
             for z in O:
-                print(f"{z}/{len(O)}, l: {l}")
+                # print(f"{z}/{len(O)}, l: {l}")
                 P_b_z_u = POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u)
                 if P_b_z_u > 0:
                     b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
                     if l == 1:
-                        J_mu_val, _ = POMDPUtil.parallel_monte_carlo_evaluate(
-                            mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b, B_n=B_n, J_mu=None, gamma=gamma,
-                            N=500, M=5000, initial_controls=[])
+                        J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
+                            mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, J_mu=None, gamma=gamma,
+                            N=100, M=10, base_policy=True, l=-1)
+                        # print(f"J_mu_val: {J_mu_val}, u: {u}")
                     else:
                         J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
                                                             C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu)[1]
                     Q_b[u] += P_b_z_u * (POMDPUtil.expected_cost(b=b, u=u, C=C, X=X) + gamma * J_mu_val)
         u_star = int(np.argmin(Q_b))
+        # print(f"Q_b: {Q_b}")
         return u_star, Q_b[u_star]
 
 

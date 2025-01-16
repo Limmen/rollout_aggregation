@@ -59,6 +59,7 @@ class EvalUtil:
         # with open(results_file, mode='w', newline='', encoding='utf-8') as file:
         #     csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde", "l", "|U|", "|O|", "X"])
         ns = list(range(1, 200))
+        # ns = [2]
         for n in ns:
             start = time.time()
             B_n = POMDPUtil.B_n(n=n, X=X)
@@ -73,18 +74,20 @@ class EvalUtil:
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
             # start = time.time()
             J_b0_mu, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
-                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=500, M=5000,
-                initial_controls = [])
-            V_pi = POMDPUtil.monte_carlo_policy_evaluation(episodes=episodes, gamma=gamma, B_n=B_n,
-                                                           B_n_indices=B_n_indices)
-            u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
-                                                     gamma=gamma, l=l)
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=20, M=100, l=1,
+                base_policy = True)
+            # V_pi = POMDPUtil.monte_carlo_policy_evaluation(episodes=episodes, gamma=gamma, B_n=B_n,
+            #                                                B_n_indices=B_n_indices)
+            # u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
+            #                                 gamma=gamma, l=l)
             # u, _ = POMDPUtil.rollout_certainty_equivalence_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
             #                                 gamma=gamma, l=l)
             J_b0_mu_tilde, _ = POMDPUtil.parallel_monte_carlo_evaluate(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma,
-                N=500, M=5000, initial_controls=[u])
+                N=20, M=100, base_policy=False, l=l)
             print(f"{n} {round(J_b0_mu, 3)} {round(J_b0_mu_tilde, 3)}")
+            import sys
+            sys.exit()
             # print(V_pi)
             # print(f"{n} {abs(J_mu[b_n_0]-J_b0_mu)}")
             # T_mu = time.time() - start
