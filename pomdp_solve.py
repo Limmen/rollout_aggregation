@@ -10,14 +10,14 @@ if __name__ == '__main__':
     k = 8
     seed = 29123
     eta = 2
-    A = POMDP.erdos_renyi_graph(N=N, p_c=p_c)
-    X, x_to_vec, vec_to_x = POMDP.X(N=N)
-    U, u_to_vec, vec_to_u = POMDP.U(N=N)
+    A = POMDP.erdos_renyi_graph(K=N, p_c=p_c)
+    X, x_to_vec, vec_to_x = POMDP.X(K=N)
+    U, u_to_vec, vec_to_u = POMDP.U(K=N)
     C = POMDP.C(X=X, U=U, x_to_vec=x_to_vec, u_to_vec=u_to_vec, eta=eta)
-    O, o_to_vec, vec_to_o = POMDP.O(k, N=N)
-    Z = POMDP.Z(k, X=X, N=N, x_to_vec=x_to_vec, o_to_vec=o_to_vec, O=O)
+    O, o_to_vec, vec_to_o = POMDP.O(k, K=N)
+    Z = POMDP.Z(k, X=X, K=N, x_to_vec=x_to_vec, o_to_vec=o_to_vec, O=O)
     P = POMDP.P(p_a=p_a, X=X, U=U, x_to_vec=x_to_vec, u_to_vec=u_to_vec, N=N, A=A)
-    b0 = POMDP.b0(N=N, X=X, vec_to_x=vec_to_x)
+    b0 = POMDP.b0(K=N, X=X, vec_to_x=vec_to_x)
     gamma=0.99
     #pomdp-solve -pomdp apt.pomdp -method incprune
     with open("apt.pomdp", 'w') as file:

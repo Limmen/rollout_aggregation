@@ -11,41 +11,41 @@ class POMDP:
     """
 
     @staticmethod
-    def erdos_renyi_graph(N, p_c):
+    def erdos_renyi_graph(K, p_c):
         """
         Generates the adjacency matrix of a random Erdös-Renyi graph
         """
-        adjacency_matrix = np.zeros((N, N), dtype=int)
-        for i in range(N):
-            for j in range(i + 1, N):  # Only consider the upper triangle to avoid duplicate edges
+        adjacency_matrix = np.zeros((K, K), dtype=int)
+        for i in range(K):
+            for j in range(i + 1, K):  # Only consider the upper triangle to avoid duplicate edges
                 if random.random() < p_c:
                     adjacency_matrix[i][j] = 1
                     adjacency_matrix[j][i] = 1  # Ensure the graph is undirected
         return adjacency_matrix
 
     @staticmethod
-    def b0(N, X, vec_to_x):
+    def b0(K, X, vec_to_x):
         """
         The initial belief
         """
         b0 = [0] * (len(X))
-        x0 = POMDP.x0(X=X, N=N, vec_to_x=vec_to_x)
+        x0 = POMDP.x0(X=X, K=K, vec_to_x=vec_to_x)
         b0[x0] = 1
         return b0
 
     @staticmethod
-    def x0(X, N, vec_to_x):
+    def x0(X, K, vec_to_x):
         """
         The initial state
         """
-        return X.index(vec_to_x[tuple([0] * N)])
+        return X.index(vec_to_x[tuple([0] * K)])
 
     @staticmethod
-    def X(N):
+    def X(K):
         """
         The state space, each server can be in two states: 0 (healthy) and 1 (compromised)
         """
-        vector_space = list(itertools.product(*([[0, 1]] * N)))
+        vector_space = list(itertools.product(*([[0, 1]] * K)))
         x = 0
         X = []
         x_to_vec = {}
@@ -58,11 +58,11 @@ class POMDP:
         return X, x_to_vec, vec_to_x
 
     @staticmethod
-    def U(N: int):
+    def U(K):
         """
         The control space, 0 (continue), 1 (stop) per server (N)
         """
-        vector_space = list(itertools.product(*([[0, 1]] * N)))
+        vector_space = list(itertools.product(*([[0, 1]] * K)))
         u = 0
         U = []
         u_to_vec = {}
@@ -75,11 +75,11 @@ class POMDP:
         return U, u_to_vec, vec_to_u
 
     @staticmethod
-    def O(n, N):
+    def O(n, K):
         """
         The observation space (0,...n) for each server i in N.
         """
-        vector_space = list(itertools.product(*([range(n + 1)] * N)))
+        vector_space = list(itertools.product(*([range(n + 1)] * K)))
         o = 0
         O = []
         o_to_vec = {}
@@ -119,7 +119,7 @@ class POMDP:
         return C
 
     @staticmethod
-    def f(x_prime, x, u, N, p_a, x_to_vec, u_to_vec, A):
+    def f(x_prime, x, u, K, p_a, x_to_vec, u_to_vec, A):
         """
         Computes P(x_prime | x,u)
         """
@@ -127,7 +127,7 @@ class POMDP:
         x_prime_vec = list(x_to_vec[x_prime])
         u_vec = list(u_to_vec[u])
         probabilities = []
-        for i in range(N):
+        for i in range(K):
             num_compromised_neighbors = POMDP.get_num_compromised_neighbors(i=i, A=A, x_vec=x_vec)
             probabilities.append(POMDP.f_local(x_prime=x_prime_vec[i], x=x_vec[i], u=u_vec[i], p_a=p_a,
                                                num_compromised_neighbors=num_compromised_neighbors))
@@ -176,7 +176,7 @@ class POMDP:
         return P
 
     @staticmethod
-    def Z(n, X, N, x_to_vec, o_to_vec, O):
+    def Z(n, X, K, x_to_vec, o_to_vec, O):
         """
         A |X|x|O| tensor, where |O|=n+1
         """
@@ -196,7 +196,7 @@ class POMDP:
             for o in O:
                 o_vec = o_to_vec[o]
                 probs = []
-                for i in range(N):
+                for i in range(K):
                     if x_vec[i] == 0:
                         probs.append(no_intrusion_dist[o_vec[i]])
                     else:

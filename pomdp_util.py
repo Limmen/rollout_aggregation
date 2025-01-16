@@ -115,7 +115,8 @@ class POMDPUtil:
         return prob
 
     @staticmethod
-    def monte_carlo_evaluate_sequential(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, base_policy, l, N=100, M=100):
+    def monte_carlo_evaluate_sequential(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, base_policy, l, rollout_length,
+                                        rollout_mc_samples, N=100, M=100):
         """
         Runs N parallel evaluation episodes following mu. Then it returns
         the average cost as well as the list of episodes
@@ -127,20 +128,21 @@ class POMDPUtil:
             seed = int(time.time()) + i
             result = POMDPUtil.monte_carlo_evaluate(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, gamma=gamma, N=N, base_policy=base_policy,
-                l=l, seed=seed, J_mu=J_mu)
+                l=l, seed=seed, J_mu=J_mu, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
             costs.append(result[0])
             episodes.append(result[1])
         return np.mean(costs), episodes
 
     @staticmethod
-    def parallel_monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, base_policy, l, N=100, M=100):
+    def parallel_monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, base_policy, l,
+                                      rollout_length, rollout_mc_samples, N=100, M=100):
         """
         Runs N parallel evaluation episodes following mu. Then it returns
         the average cost as well as the list of episodes
         (each episode is a list of tuples (b_0,u_0,c_0),(b_1,u_1,c_1),..)
         """
         inputs = [(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, base_policy, l,
-                   int(time.time()) + i) for i in range(M)]
+                   int(time.time()) + i, rollout_length, rollout_mc_samples) for i in range(M)]
         with Pool() as pool:
             results = pool.starmap(POMDPUtil.monte_carlo_evaluate, inputs)
             costs = list(map(lambda res: res[0], results))
@@ -148,7 +150,8 @@ class POMDPUtil:
             return np.mean(costs), episodes
 
     @staticmethod
-    def monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, base_policy, l, seed):
+    def monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, base_policy, l, seed, rollout_length,
+                             rollout_mc_samples):
         """
         Monte-Carlo evaluation to estimate J for a base or rollout policy
         """
@@ -163,7 +166,8 @@ class POMDPUtil:
                 u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
             else:
                 u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
-                                                gamma=gamma, l=l, N=N, t=t)
+                                                gamma=gamma, l=l, N=N, t=t, rollout_length=rollout_length,
+                                                rollout_mc_samples=rollout_mc_samples, monte_carlo=True)
                 print(f"{t}/{N - 1}")
                 # print(f"{t}/{N-1}, u_tilde: {u}, u_base: {POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)}, b: {b}")
             Cost += math.pow(gamma, t) * C[x][u]
@@ -172,8 +176,6 @@ class POMDPUtil:
             z = np.random.choice(O, p=Z[x])
             b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
             t += 1
-        if J_mu is not None:
-            Cost += math.pow(gamma, N) * J_mu[B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b))]
         return (Cost, episode)
 
     @staticmethod
@@ -209,8 +211,6 @@ class POMDPUtil:
                     J = J | results[i][1]
         else:
             for z in O:
-                if base_policy and t == 0:
-                    print(f"{z}/{len(O)}")
                 b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
                 J_prime = POMDPUtil.exact_eval(
                     t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
@@ -244,7 +244,8 @@ class POMDPUtil:
         return np.random.choice(U, p=mu[B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b))])
 
     @staticmethod
-    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l, mu, t, N, rollout_length, certainty_equivalence=False):
+    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l, mu, t, N, rollout_length,
+                       certainty_equivalence=False, monte_carlo=False, rollout_mc_samples=1):
         """
         Returns \tilde{\mu}[b]
         """
@@ -259,41 +260,50 @@ class POMDPUtil:
                 b_prime = np.sum([POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) *
                                   np.array(POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)) for z in O], axis=0)
                 if l == 1:
-                    J_mu_val = POMDPUtil.exact_eval(
-                        mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=J_mu, gamma=gamma,
-                        N=N, base_policy=True, l=-1, t=t + 1, certainty_equivalence=certainty_equivalence,
-                        rollout_horizon=rollout_horizon, rollout_length=rollout_length, J={})
+                    if not monte_carlo:
+                        J_mu_val = POMDPUtil.exact_eval(
+                            mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=J_mu, gamma=gamma,
+                            N=N, base_policy=True, l=-1, t=t + 1, certainty_equivalence=certainty_equivalence,
+                            rollout_horizon=rollout_horizon, rollout_length=rollout_length, J={})
+                    else:
+                        J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
+                            mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, gamma=gamma, J_mu=J_mu,
+                            base_policy=True, l=l, N=N, M=rollout_mc_samples, rollout_length=rollout_length,
+                            rollout_mc_samples=rollout_mc_samples)
                 else:
                     J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
                                                         C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu,
-                                                        t=t + 1, N=N, rollout_length=rollout_length)[1]
+                                                        t=t + 1, N=N, rollout_length=rollout_length,
+                                                        monte_carlo=monte_carlo,
+                                                        rollout_mc_samples=rollout_mc_samples,
+                                                        certainty_equivalence=certainty_equivalence)[1]
                 Q_b[u] += gamma * J_mu_val
                 continue
 
             for z in O:
-                # print(f"{z}/{len(O)}, l: {l}")
                 P_b_z_u = POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u)
                 if P_b_z_u > 0:
                     b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
-                    # print(f"b_prime: {b_prime}, b: {b}")
                     if l == 1:
-                        J = POMDPUtil.exact_eval(
-                            mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=J_mu, gamma=gamma,
-                            N=N, base_policy=True, l=-1, t=t + 1, certainty_equivalence=certainty_equivalence,
-                            rollout_horizon=rollout_horizon, rollout_length=rollout_length, J={})
-                        J_mu_val = J[(tuple(b_prime), t + 1)]
-                        # if b_prime == [1.0,0.0]:
-                        #     print(f"JJ: {J_mu_val}")
-                        # print(f"J_mu_val: {J_mu_val}, u: {u}")
+                        if not monte_carlo:
+                            J = POMDPUtil.exact_eval(
+                                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=J_mu, gamma=gamma,
+                                N=N, base_policy=True, l=-1, t=t + 1, certainty_equivalence=certainty_equivalence,
+                                rollout_horizon=rollout_horizon, rollout_length=rollout_length, J={})
+                            J_mu_val = J[(tuple(b_prime), t + 1)]
+                        else:
+                            J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
+                                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, gamma=gamma, J_mu=J_mu,
+                                base_policy=True, l=l, N=N, M=rollout_mc_samples, rollout_length=rollout_length,
+                                rollout_mc_samples=rollout_mc_samples)
                     else:
                         J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
                                                             C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu,
-                                                            t=t + 1, N=N, rollout_length=rollout_length)[1]
+                                                            t=t + 1, N=N, rollout_length=rollout_length,
+                                                            monte_carlo=monte_carlo,
+                                                            rollout_mc_samples=rollout_mc_samples,
+                                                            certainty_equivalence=certainty_equivalence)[1]
                     Q_b[u] += P_b_z_u * gamma * J_mu_val
-                    # print(f"J_mu_val: {J_mu_val}")
-        # if t == 4 and l == 2:
-        #     print(Q_b)
-        #     print(POMDPUtil.expected_cost(b=b, u=u, C=C, X=X))
         u_star = int(np.argmin(Q_b))
         return u_star, Q_b[u_star]
 

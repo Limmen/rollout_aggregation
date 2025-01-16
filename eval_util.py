@@ -53,19 +53,12 @@ class EvalUtil:
         return mu, J
 
     @staticmethod
-    def eval(results_file, X, b0, U, O, P, Z, C, gamma, l, u_to_vec):
+    def exact_eval(X, b0, U, O, P, Z, C, gamma, l, u_to_vec, N, rollout_length):
         """
-        Runs the evaluation and saves the results to a csv file
+        Runs the exact evaluation
         """
-        # with open(results_file, mode='w', newline='', encoding='utf-8') as file:
-        #     csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde", "l", "|U|", "|O|", "X"])
         ns = list(range(1, 200))
-        # ns = [2]
-        # #12
-        # import sys
-        # sys.setrecursionlimit(1000000)
         for n in ns:
-            start = time.time()
             B_n = POMDPUtil.B_n(n=n, X=X)
             B_n_indices = []
             for i in range(len(B_n)):
@@ -73,36 +66,46 @@ class EvalUtil:
             b_n_0 = B_n.index(b0)
             P_b = POMDPUtil.P_b(B_n=B_n, X=X, U=U, O=O, P=P, Z=Z)
             C_b = POMDPUtil.C_b(B_n=B_n, X=X, U=U, C=C)
-            # T_mdp = time.time() - start
             mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
-
-            N=10
-            M=1
-            # start = time.time()
             J_b0_mu = POMDPUtil.exact_eval(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, l=1,
-                base_policy = True, t=0, certainty_equivalence=False, rollout_horizon=N, rollout_length=1, J={})
-            # J_b0_mu2 = POMDPUtil.monte_carlo_evaluate_sequential(
-            #     mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=5, M=1, l=1,
-            #     base_policy = True)
-            # print(f"{J_b0_mu}, {J_b0_mu2}, {b0}")
-            # import sys
-            # sys.exit()
-            # V_pi = POMDPUtil.monte_carlo_policy_evaluation(episodes=episodes, gamma=gamma, B_n=B_n,
-            #                                                B_n_indices=B_n_indices)
-            # u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
-            #                                 gamma=gamma, l=l)
-            # u, _ = POMDPUtil.rollout_certainty_equivalence_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
-            #                                 gamma=gamma, l=l)
+                base_policy=True, t=0, certainty_equivalence=False, rollout_horizon=N,
+                rollout_length=rollout_length, J={})
             J_b0_mu_tilde = POMDPUtil.exact_eval(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=J_b0_mu, gamma=gamma, N=N, base_policy=False,
-                l=l, t=0, certainty_equivalence=False, rollout_horizon=N, rollout_length=1, J={})
+                l=l, t=0, certainty_equivalence=False, rollout_horizon=N, rollout_length=rollout_length, J={})
             print(f"{n} {round(J_b0_mu[(tuple(b0), 0)], 3)} {round(J_b0_mu_tilde[(tuple(b0), 0)], 3)}")
-            if J_b0_mu[(tuple(b0), 0)] < J_b0_mu_tilde[(tuple(b0), 0)]:
-                raise ValueError("ERROR")
-            # import sys
-            # sys.exit()
+
+    @staticmethod
+    def monte_carlo_eval(X, b0, U, O, P, Z, C, gamma, l, u_to_vec, N, M, rollout_length, rollout_mc_samples):
+        """
+        Runs the Monte-Carlo evaluation
+        """
+        ns = list(range(1, 200))
+        for n in ns:
+            B_n = POMDPUtil.B_n(n=n, X=X)
+            B_n_indices = []
+            for i in range(len(B_n)):
+                B_n_indices.append(i)
+            b_n_0 = B_n.index(b0)
+            P_b = POMDPUtil.P_b(B_n=B_n, X=X, U=U, O=O, P=P, Z=Z)
+            C_b = POMDPUtil.C_b(B_n=B_n, X=X, U=U, C=C)
+            mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
+                                                    pi=False, verbose=False, u_to_vec=u_to_vec)
+            J_b0_mu, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, M=M, l=l,
+                base_policy = True, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+            V_pi = POMDPUtil.monte_carlo_policy_evaluation(episodes=episodes, gamma=gamma, B_n=B_n,
+                                                           B_n_indices=B_n_indices)
+            J_b0_mu_tilde, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=V_pi, gamma=gamma, N=N, M=M, l=l,
+                base_policy = False, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+            print(f"{n} {round(J_b0_mu, 3)} {round(J_b0_mu_tilde, 3)}")
+            # if J_b0_mu[(tuple(b0), 0)] < J_b0_mu_tilde[(tuple(b0), 0)]:
+            #     raise ValueError("ERROR")
+            import sys
+            sys.exit()
             # print(V_pi)
             # print(f"{n} {abs(J_mu[b_n_0]-J_b0_mu)}")
             # T_mu = time.time() - start
