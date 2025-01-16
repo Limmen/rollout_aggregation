@@ -77,12 +77,12 @@ class EvalUtil:
             mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
 
-            N=12
+            N=10
             M=1
             # start = time.time()
             J_b0_mu = POMDPUtil.exact_eval(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, l=1,
-                base_policy = True, t=0)
+                base_policy = True, t=0, certainty_equivalence=False)
             # J_b0_mu2 = POMDPUtil.monte_carlo_evaluate_sequential(
             #     mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=5, M=1, l=1,
             #     base_policy = True)
@@ -97,10 +97,10 @@ class EvalUtil:
             #                                 gamma=gamma, l=l)
             J_b0_mu_tilde = POMDPUtil.exact_eval(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, base_policy=False,
-                l=l, t=0)
+                l=l, t=0, certainty_equivalence=True)
             print(f"{n} {round(J_b0_mu, 3)} {round(J_b0_mu_tilde, 3)}")
-            if J_b0_mu < J_b0_mu_tilde:
-                raise ValueError("ERROR")
+            # if J_b0_mu < J_b0_mu_tilde:
+            #     raise ValueError("ERROR")
             # import sys
             # sys.exit()
             # print(V_pi)

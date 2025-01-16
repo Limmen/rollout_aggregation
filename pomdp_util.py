@@ -177,28 +177,21 @@ class POMDPUtil:
         return (Cost, episode)
 
     @staticmethod
-    def exact_eval(t, b, base_policy, mu, U, B_n, P, Z, C, O, X, J_mu, gamma, l, N):
+    def exact_eval(t, b, base_policy, mu, U, B_n, P, Z, C, O, X, J_mu, gamma, l, N, certainty_equivalence):
+        """
+        Computes the exact value function for either the base policy or the rollout policy
+        """
         if t >= N:
             return 0
         if base_policy:
             u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
         else:
-            # print(f"{t}/{N}")
             u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
-                                            gamma=gamma, l=l, t=t, N=N)
-            # if u != POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n):
-            #     # u=POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
-            #     # J_mu_base = POMDPUtil.exact_eval(
-            #     #     mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=[1.0, 0.0], B_n=B_n, J_mu=None, gamma=gamma,
-            #     #     N=N, base_policy=True, l=-1, t=5)
-            #     # c = POMDPUtil.expected_cost(b=b, u=1, C=C, X=X)
-            #     # print(gamma*J_mu_base + c)
-            #     print(f"u_tilde: {u}, base: {POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)}, t: {t}")
-            #     import sys
-            #     sys.exit()
+                                            gamma=gamma, l=l, t=t, N=N, certainty_equivalence=certainty_equivalence)
         Cost = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
         if t == 0:
-            inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma, l, N) for z in O]
+            inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma,
+                       l, N, certainty_equivalence) for z in O]
             with Pool() as pool:
                 costs = pool.starmap(POMDPUtil.parallel_lookahead, inputs)
                 Cost += sum(costs)
@@ -209,26 +202,19 @@ class POMDPUtil:
                 b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
                 cost_to_go = POMDPUtil.exact_eval(
                     t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
-                    B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N)
+                    B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N,
+                    certainty_equivalence=certainty_equivalence)
                 Cost += gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
-        # for z in O:
-        #     if not base_policy and t == 0:
-        #         print(f"{z}/{len(O)}")
-        #     b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
-        #     cost_to_go = POMDPUtil.exact_eval(
-        #         t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
-        #         B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N)
-        #     Cost += gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
-        # if not base_policy:
-        #     print(f"{t}/{N}")
         return Cost
 
     @staticmethod
-    def parallel_lookahead(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma, l, N):
+    def parallel_lookahead(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma, l, N,
+                           certainty_equivalence):
         b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
         cost_to_go = POMDPUtil.exact_eval(
             t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
-            B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N)
+            B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N,
+            certainty_equivalence=certainty_equivalence)
         return gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
 
     @staticmethod
@@ -239,17 +225,28 @@ class POMDPUtil:
         return np.random.choice(U, p=mu[B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b))])
 
     @staticmethod
-    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l, mu, t, N):
+    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l, mu, t, N, certainty_equivalence=False):
         """
         Returns \tilde{\mu}[b]
         """
         if t >= N:
             return random.choice(U), 0
-        # print(f"rollout l: {l}")
         Q_b = np.zeros(len(U))
         for u in U:
-            # print(f"{u}/{len(U)}, l: {l}")
             Q_b[u] = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
+            if certainty_equivalence:
+                b_prime = np.sum([POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u)*
+                        np.array(POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)) for z in O], axis=0)
+                if l == 1:
+                    J_mu_val = POMDPUtil.exact_eval(
+                        mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=None, gamma=gamma,
+                        N=N, base_policy=True, l=-1, t=t+1, certainty_equivalence=certainty_equivalence)
+                else:
+                    J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
+                                                        C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l-1, mu=mu,
+                                                        t=t+1, N=N)[1]
+                Q_b[u] += gamma * J_mu_val
+                continue
             for z in O:
                 # print(f"{z}/{len(O)}, l: {l}")
                 P_b_z_u = POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u)
@@ -259,7 +256,7 @@ class POMDPUtil:
                     if l == 1:
                         J_mu_val = POMDPUtil.exact_eval(
                             mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=None, gamma=gamma,
-                            N=N, base_policy=True, l=-1, t=t+1)
+                            N=N, base_policy=True, l=-1, t=t+1, certainty_equivalence=certainty_equivalence)
                         # if b_prime == [1.0,0.0]:
                         #     print(f"JJ: {J_mu_val}")
                         # print(f"J_mu_val: {J_mu_val}, u: {u}")
