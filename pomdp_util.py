@@ -212,9 +212,9 @@ class POMDPUtil:
                                             rollout_length=rollout_length, monte_carlo=monte_carlo,
                                             rollout_mc_samples=rollout_mc_samples, multiagent=multiagent,
                                             u_to_vec=u_to_vec, component_spaces=component_spaces, vec_to_u=vec_to_u)
-            # print(time.time()-start)
-            # import sys
-            # sys.exit()
+            print(time.time()-start)
+            import sys
+            sys.exit()
         Cost = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
         if t == 0:
             inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma,
