@@ -31,7 +31,8 @@ class EvalUtil:
         print(f"J(b_n_0): {J[b_n_0]}")
 
     @staticmethod
-    def compute_base_policy(B_n, P_b, C_b, U, b_n_0, gamma, u_to_vec, pi=True, verbose=False):
+    def compute_base_policy(B_n, P_b, C_b, U, b_n_0, gamma, u_to_vec, pi=True, verbose=False, epsilon=0.01,
+                            pi_iterations=10):
         """
         Computes the base policy in the aggregate belief MDP
         """
@@ -43,10 +44,10 @@ class EvalUtil:
 
         if pi:
             mu, J = PI.pi(
-                P=P_b, mu=mu_1, N=10, gamma=gamma, C=C_b, X=B_n_indices, U=U, x0=b_n_0, verbose=verbose)
+                P=P_b, mu=mu_1, N=pi_iterations, gamma=gamma, C=C_b, X=B_n_indices, U=U, x0=b_n_0, verbose=verbose)
         else:
             mu, J = VI.vi(
-                P=P_b, epsilon=0.01, gamma=gamma, C=C_b, X=B_n_indices, U=U, verbose=verbose)
+                P=P_b, epsilon=epsilon, gamma=gamma, C=C_b, X=B_n_indices, U=U, verbose=verbose)
         if verbose:
             EvalUtil.print_mu(mu=mu, J=J, B_n=B_n, b_n_0=b_n_0, u_to_vec=u_to_vec)
         return mu, J
@@ -59,7 +60,8 @@ class EvalUtil:
         # with open(results_file, mode='w', newline='', encoding='utf-8') as file:
         #     csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde", "l", "|U|", "|O|", "X"])
         ns = list(range(1, 200))
-        # ns = [2]
+        # ns = [7]
+        # #12
         for n in ns:
             start = time.time()
             B_n = POMDPUtil.B_n(n=n, X=X)
@@ -72,22 +74,33 @@ class EvalUtil:
             # T_mdp = time.time() - start
             mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
+
+            N=12
+            M=1
             # start = time.time()
-            J_b0_mu, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
-                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=20, M=100, l=1,
-                base_policy = True)
+            J_b0_mu = POMDPUtil.exact_eval(
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, l=1,
+                base_policy = True, t=0)
+            # J_b0_mu2 = POMDPUtil.monte_carlo_evaluate_sequential(
+            #     mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=5, M=1, l=1,
+            #     base_policy = True)
+            # print(f"{J_b0_mu}, {J_b0_mu2}, {b0}")
+            # import sys
+            # sys.exit()
             # V_pi = POMDPUtil.monte_carlo_policy_evaluation(episodes=episodes, gamma=gamma, B_n=B_n,
             #                                                B_n_indices=B_n_indices)
             # u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
             #                                 gamma=gamma, l=l)
             # u, _ = POMDPUtil.rollout_certainty_equivalence_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=V_pi,
             #                                 gamma=gamma, l=l)
-            J_b0_mu_tilde, _ = POMDPUtil.parallel_monte_carlo_evaluate(
-                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma,
-                N=20, M=100, base_policy=False, l=l)
+            J_b0_mu_tilde = POMDPUtil.exact_eval(
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, base_policy=False,
+                l=l, t=0)
             print(f"{n} {round(J_b0_mu, 3)} {round(J_b0_mu_tilde, 3)}")
-            import sys
-            sys.exit()
+            # if J_b0_mu < J_b0_mu_tilde:
+            #     raise ValueError("ERROR")
+            # import sys
+            # sys.exit()
             # print(V_pi)
             # print(f"{n} {abs(J_mu[b_n_0]-J_b0_mu)}")
             # T_mu = time.time() - start
