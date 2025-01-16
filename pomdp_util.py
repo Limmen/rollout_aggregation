@@ -196,10 +196,14 @@ class POMDPUtil:
         if base_policy:
             u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
         else:
+            start = time.time()
             u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
                                             gamma=gamma, l=l, t=t, N=N, certainty_equivalence=certainty_equivalence,
                                             rollout_length=rollout_length, monte_carlo=monte_carlo,
                                             rollout_mc_samples=rollout_mc_samples)
+            print(time.time()-start)
+            import sys
+            sys.exit()
         Cost = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
         if t == 0:
             inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma,
