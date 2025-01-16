@@ -116,7 +116,8 @@ class POMDPUtil:
 
     @staticmethod
     def monte_carlo_evaluate_sequential(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, base_policy, l, rollout_length,
-                                        rollout_mc_samples, N=100, M=100):
+                                        rollout_mc_samples, component_spaces, multiagent, certainty_equivalence,
+                                        u_to_vec, vec_to_u, N=100, M=100):
         """
         Runs N parallel evaluation episodes following mu. Then it returns
         the average cost as well as the list of episodes
@@ -128,21 +129,25 @@ class POMDPUtil:
             seed = int(time.time()) + i
             result = POMDPUtil.monte_carlo_evaluate(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, gamma=gamma, N=N, base_policy=base_policy,
-                l=l, seed=seed, J_mu=J_mu, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+                l=l, seed=seed, J_mu=J_mu, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples,
+                component_spaces=component_spaces, multiagent=multiagent, certainty_equivalence=certainty_equivalence,
+                u_to_vec=u_to_vec, vec_to_u=vec_to_u)
             costs.append(result[0])
             episodes.append(result[1])
         return np.mean(costs), episodes
 
     @staticmethod
     def parallel_monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, base_policy, l,
-                                      rollout_length, rollout_mc_samples, N=100, M=100):
+                                      rollout_length, rollout_mc_samples, component_spaces, multiagent,
+                                      certainty_equivalence, u_to_vec, vec_to_u, N=100, M=100):
         """
         Runs N parallel evaluation episodes following mu. Then it returns
         the average cost as well as the list of episodes
         (each episode is a list of tuples (b_0,u_0,c_0),(b_1,u_1,c_1),..)
         """
         inputs = [(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, base_policy, l,
-                   int(time.time()) + i, rollout_length, rollout_mc_samples) for i in range(M)]
+                   int(time.time()) + i, rollout_length, rollout_mc_samples, component_spaces, multiagent,
+                   certainty_equivalence, u_to_vec, vec_to_u) for i in range(M)]
         with Pool() as pool:
             results = pool.starmap(POMDPUtil.monte_carlo_evaluate, inputs)
             costs = list(map(lambda res: res[0], results))
@@ -151,7 +156,8 @@ class POMDPUtil:
 
     @staticmethod
     def monte_carlo_evaluate(mu, P, Z, C, O, X, U, b0, B_n, gamma, J_mu, N, base_policy, l, seed, rollout_length,
-                             rollout_mc_samples):
+                             rollout_mc_samples, component_spaces, multiagent, certainty_equivalence, u_to_vec,
+                             vec_to_u):
         """
         Monte-Carlo evaluation to estimate J for a base or rollout policy
         """
@@ -166,7 +172,10 @@ class POMDPUtil:
             else:
                 u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
                                                 gamma=gamma, l=l, N=N, t=t, rollout_length=rollout_length,
-                                                rollout_mc_samples=rollout_mc_samples, monte_carlo=True)
+                                                rollout_mc_samples=rollout_mc_samples, monte_carlo=True,
+                                                component_spaces=component_spaces, multiagent=multiagent,
+                                                certainty_equivalence=certainty_equivalence, u_to_vec=u_to_vec,
+                                                vec_to_u=vec_to_u)
                 print(f"{t}/{N - 1}, {u}")
                 # print(f"{t}/{N-1}, u_tilde: {u}, u_base: {POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)}, b: {b}")
             Cost += math.pow(gamma, t) * POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
@@ -179,7 +188,8 @@ class POMDPUtil:
 
     @staticmethod
     def exact_eval(t, b, base_policy, mu, U, B_n, P, Z, C, O, X, J_mu, gamma, l, N, certainty_equivalence,
-                   rollout_horizon, rollout_length, J, monte_carlo, rollout_mc_samples):
+                   rollout_horizon, rollout_length, J, monte_carlo, rollout_mc_samples, multiagent, u_to_vec,
+                   component_spaces, vec_to_u):
         """
         Computes the exact value function for either the base policy or the rollout policy
         """
@@ -200,15 +210,16 @@ class POMDPUtil:
             u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
                                             gamma=gamma, l=l, t=t, N=N, certainty_equivalence=certainty_equivalence,
                                             rollout_length=rollout_length, monte_carlo=monte_carlo,
-                                            rollout_mc_samples=rollout_mc_samples)
-            print(time.time()-start)
-            import sys
-            sys.exit()
+                                            rollout_mc_samples=rollout_mc_samples, multiagent=multiagent,
+                                            u_to_vec=u_to_vec, component_spaces=component_spaces, vec_to_u=vec_to_u)
+            # print(time.time()-start)
+            # import sys
+            # sys.exit()
         Cost = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
         if t == 0:
             inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma,
                        l, N, certainty_equivalence, rollout_horizon, rollout_length, J.copy(),
-                       monte_carlo, rollout_mc_samples) for z in O]
+                       monte_carlo, rollout_mc_samples, multiagent, u_to_vec, component_spaces, vec_to_u) for z in O]
             with Pool() as pool:
                 results = pool.starmap(POMDPUtil.parallel_lookahead, inputs)
                 for i in range(len(results)):
@@ -222,7 +233,8 @@ class POMDPUtil:
                     B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N,
                     certainty_equivalence=certainty_equivalence, rollout_horizon=rollout_horizon,
                     rollout_length=rollout_length, J=J.copy(), monte_carlo=monte_carlo,
-                    rollout_mc_samples=rollout_mc_samples)
+                    rollout_mc_samples=rollout_mc_samples, multiagent=multiagent, u_to_vec=u_to_vec,
+                    component_spaces=component_spaces, vec_to_u=vec_to_u)
                 cost_to_go = J_prime[(tuple(b_prime), t + 1)]
                 Cost += gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
                 J = J | J_prime
@@ -232,7 +244,7 @@ class POMDPUtil:
     @staticmethod
     def parallel_lookahead(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma, l, N,
                            certainty_equivalence, rollout_horizon, rollout_length, J, monte_carlo,
-                           rollout_mc_samples):
+                           rollout_mc_samples, multiagent, u_to_vec, component_spaces, vec_to_u):
         """
         Auxillary function for parallelizing the lookahead per observation in exact_eval()
         """
@@ -242,7 +254,8 @@ class POMDPUtil:
             B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N,
             certainty_equivalence=certainty_equivalence, rollout_horizon=rollout_horizon,
             rollout_length=rollout_length, J=J.copy(), monte_carlo=monte_carlo,
-            rollout_mc_samples=rollout_mc_samples)
+            rollout_mc_samples=rollout_mc_samples, multiagent=multiagent, u_to_vec=u_to_vec,
+            component_spaces=component_spaces, vec_to_u=vec_to_u)
         cost_to_go = J_prime[(tuple(b_prime), t + 1)]
         J = J | J_prime
         return gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go, J
@@ -255,71 +268,127 @@ class POMDPUtil:
         return np.random.choice(U, p=mu[B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b))])
 
     @staticmethod
-    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l, mu, t, N, rollout_length,
-                       certainty_equivalence=False, monte_carlo=False, rollout_mc_samples=1):
+    def rollout_policy(U, O, Z, X, P, b, C, J_mu, gamma, B_n, l, mu, t, N, rollout_length, u_to_vec,
+                       component_spaces, vec_to_u, certainty_equivalence=False, monte_carlo=False,
+                       rollout_mc_samples=1, multiagent=False):
         """
         Returns \tilde{\mu}[b]
         """
         if t >= N:
             return random.choice(U), 0
-        Q_b = np.zeros(len(U))
         rollout_horizon = min(t + 1 + rollout_length, N)
-        for u in U:
-            Q_b[u] = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
+        if multiagent:
+            aggregate_u = []
+            rollout_value = 0
+            base_u = u_to_vec[POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)]
+            for agent in range(len(component_spaces)):
+                u_agent = aggregate_u.copy()
+                u_agent.append(-1)
+                for agent_i in range(agent + 1, len(component_spaces)):
+                    u_agent.append(base_u[agent_i])
+                Q_b_agent = np.zeros(len(component_spaces[agent]))
+                for local_u in component_spaces[agent]:
+                    u_agent[agent] = local_u
+                    u = vec_to_u[tuple(u_agent)]
+                    cost = POMDPUtil.rollout_optimization(certainty_equivalence=certainty_equivalence, b=b,
+                                                          u=u, C=C, P=P, X=X, Z=Z, O=O, monte_carlo=monte_carlo, l=l,
+                                                          B_n=B_n, U=U, J_mu=J_mu, gamma=gamma, N=N,
+                                                          rollout_horizon=rollout_horizon, t=t,
+                                                          rollout_length=rollout_length,
+                                                          rollout_mc_samples=rollout_mc_samples, u_to_vec=u_to_vec,
+                                                          multiagent=multiagent, mu=mu,
+                                                          component_spaces=component_spaces, vec_to_u=vec_to_u)
+                    Q_b_agent[local_u] = cost
+                u_star_local = int(np.argmin(Q_b_agent))
+                rollout_value = Q_b_agent[u_star_local]
+                aggregate_u.append(u_star_local)
+            return vec_to_u[tuple(aggregate_u)], rollout_value
+        else:
+            Q_b = np.zeros(len(U))
+            for u in U:
+                cost = POMDPUtil.rollout_optimization(certainty_equivalence=certainty_equivalence, b=b,
+                                                      u=u, C=C, P=P, X=X, Z=Z, O=O, monte_carlo=monte_carlo, l=l,
+                                                      B_n=B_n, U=U, J_mu=J_mu, gamma=gamma, N=N,
+                                                      rollout_horizon=rollout_horizon, t=t,
+                                                      rollout_length=rollout_length,
+                                                      rollout_mc_samples=rollout_mc_samples, u_to_vec=u_to_vec,
+                                                      multiagent=multiagent, mu=mu, component_spaces=component_spaces,
+                                                      vec_to_u=vec_to_u)
+                Q_b[u] = cost
+            u_star = int(np.argmin(Q_b))
+            return u_star, Q_b[u_star]
 
-            if certainty_equivalence:
-                b_prime = np.sum([POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) *
-                                  np.array(POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)) for z in O], axis=0)
+    @staticmethod
+    def rollout_optimization(certainty_equivalence, b, u, C, P, X, Z, O, monte_carlo, l, B_n, U, J_mu, gamma,
+                             N, rollout_horizon, t, rollout_length, rollout_mc_samples, u_to_vec, multiagent, mu,
+                             component_spaces, vec_to_u):
+        """
+        Performs the rollout lookahead optimization
+        """
+        cost = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
+        if certainty_equivalence:
+            b_prime = np.sum([POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) *
+                              np.array(POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)) for z in O],
+                             axis=0)
+            if l == 1:
+                if not monte_carlo:
+                    J = POMDPUtil.exact_eval(
+                        mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=J_mu, gamma=gamma,
+                        N=N, base_policy=True, l=-1, t=t + 1, certainty_equivalence=certainty_equivalence,
+                        rollout_horizon=rollout_horizon, rollout_length=rollout_length, J={},
+                        monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples, u_to_vec=u_to_vec,
+                        multiagent=multiagent, component_spaces=component_spaces, vec_to_u=vec_to_u)
+                    J_mu_val = J[(tuple(b_prime), t + 1)]
+                else:
+                    J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
+                        mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, gamma=gamma, J_mu=J_mu,
+                        base_policy=True, l=l, N=N - t, M=rollout_mc_samples, rollout_length=rollout_length,
+                        rollout_mc_samples=rollout_mc_samples, component_spaces=component_spaces,
+                        multiagent=multiagent, vec_to_u=vec_to_u, u_to_vec=u_to_vec,
+                        certainty_equivalence=certainty_equivalence)
+            else:
+                J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
+                                                    C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu,
+                                                    t=t + 1, N=N, rollout_length=rollout_length,
+                                                    monte_carlo=monte_carlo,
+                                                    rollout_mc_samples=rollout_mc_samples,
+                                                    certainty_equivalence=certainty_equivalence,
+                                                    u_to_vec=u_to_vec, multiagent=multiagent,
+                                                    component_spaces=component_spaces, vec_to_u=vec_to_u)[1]
+            cost += gamma * J_mu_val
+            return cost
+
+        for z in O:
+            P_b_z_u = POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u)
+            if P_b_z_u > 0:
+                b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
                 if l == 1:
                     if not monte_carlo:
                         J = POMDPUtil.exact_eval(
                             mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=J_mu, gamma=gamma,
                             N=N, base_policy=True, l=-1, t=t + 1, certainty_equivalence=certainty_equivalence,
                             rollout_horizon=rollout_horizon, rollout_length=rollout_length, J={},
-                            monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples)
+                            monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples, u_to_vec=u_to_vec,
+                            multiagent=multiagent, component_spaces=component_spaces, vec_to_u=vec_to_u)
                         J_mu_val = J[(tuple(b_prime), t + 1)]
                     else:
                         J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
                             mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, gamma=gamma, J_mu=J_mu,
-                            base_policy=True, l=l, N=N-t, M=rollout_mc_samples, rollout_length=rollout_length,
-                            rollout_mc_samples=rollout_mc_samples)
+                            base_policy=True, l=l, N=N - t, M=rollout_mc_samples, rollout_length=rollout_length,
+                            rollout_mc_samples=rollout_mc_samples, component_spaces=component_spaces,
+                            multiagent=multiagent, vec_to_u=vec_to_u, u_to_vec=u_to_vec,
+                            certainty_equivalence=certainty_equivalence)
                 else:
                     J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
                                                         C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu,
                                                         t=t + 1, N=N, rollout_length=rollout_length,
                                                         monte_carlo=monte_carlo,
                                                         rollout_mc_samples=rollout_mc_samples,
-                                                        certainty_equivalence=certainty_equivalence)[1]
-                Q_b[u] += gamma * J_mu_val
-                continue
-
-            for z in O:
-                P_b_z_u = POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u)
-                if P_b_z_u > 0:
-                    b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
-                    if l == 1:
-                        if not monte_carlo:
-                            J = POMDPUtil.exact_eval(
-                                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b_prime, B_n=B_n, J_mu=J_mu, gamma=gamma,
-                                N=N, base_policy=True, l=-1, t=t + 1, certainty_equivalence=certainty_equivalence,
-                                rollout_horizon=rollout_horizon, rollout_length=rollout_length, J={},
-                                monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples)
-                            J_mu_val = J[(tuple(b_prime), t + 1)]
-                        else:
-                            J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
-                                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, gamma=gamma, J_mu=J_mu,
-                                base_policy=True, l=l, N=N-t, M=rollout_mc_samples, rollout_length=rollout_length,
-                                rollout_mc_samples=rollout_mc_samples)
-                    else:
-                        J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
-                                                            C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu,
-                                                            t=t + 1, N=N, rollout_length=rollout_length,
-                                                            monte_carlo=monte_carlo,
-                                                            rollout_mc_samples=rollout_mc_samples,
-                                                            certainty_equivalence=certainty_equivalence)[1]
-                    Q_b[u] += P_b_z_u * gamma * J_mu_val
-        u_star = int(np.argmin(Q_b))
-        return u_star, Q_b[u_star]
+                                                        certainty_equivalence=certainty_equivalence,
+                                                        u_to_vec=u_to_vec, multiagent=multiagent,
+                                                        component_spaces=component_spaces, vec_to_u=vec_to_u)[1]
+                cost += P_b_z_u * gamma * J_mu_val
+        return cost
 
     @staticmethod
     def pomdp_solver_file(gamma, X, U, O, P, b0, Z, C):

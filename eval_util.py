@@ -52,7 +52,7 @@ class EvalUtil:
 
     @staticmethod
     def exact_eval(X, b0, U, O, P, Z, C, gamma, l, u_to_vec, N, rollout_length, rollout_mc_samples, monte_carlo,
-                   certainty_equivalence):
+                   certainty_equivalence, multiagent, component_spaces, vec_to_u):
         """
         Runs the exact evaluation
         """
@@ -67,20 +67,23 @@ class EvalUtil:
             C_b = POMDPUtil.C_b(B_n=B_n, X=X, U=U, C=C)
             mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
-            # J_b0_mu = POMDPUtil.exact_eval(
-            #     mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, l=1,
-            #     base_policy=True, t=0, certainty_equivalence=False, rollout_horizon=N,
-            #     rollout_length=rollout_length, J={}, monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples)
-            J_b0_mu = {}
+            J_b0_mu = POMDPUtil.exact_eval(
+                mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, l=1,
+                base_policy=True, t=0, certainty_equivalence=False, rollout_horizon=N,
+                rollout_length=rollout_length, J={}, monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples,
+                multiagent=multiagent, u_to_vec=u_to_vec, component_spaces=component_spaces, vec_to_u=vec_to_u)
+            # J_b0_mu = {}
             J_b0_mu_tilde = POMDPUtil.exact_eval(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=J_b0_mu, gamma=gamma, N=N, base_policy=False,
                 l=l, t=0, certainty_equivalence=certainty_equivalence, rollout_horizon=N,
                 rollout_length=rollout_length, J={},
-                monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples)
-            # print(f"{n} {round(J_b0_mu[(tuple(b0), 0)], 3)} {round(J_b0_mu_tilde[(tuple(b0), 0)], 3)}")
+                monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples, multiagent=multiagent,
+                u_to_vec=u_to_vec, component_spaces=component_spaces, vec_to_u=vec_to_u)
+            print(f"{n} {round(J_b0_mu[(tuple(b0), 0)], 3)} {round(J_b0_mu_tilde[(tuple(b0), 0)], 3)}")
 
     @staticmethod
-    def monte_carlo_eval(X, b0, U, O, P, Z, C, gamma, l, u_to_vec, N, M, rollout_length, rollout_mc_samples):
+    def monte_carlo_eval(X, b0, U, O, P, Z, C, gamma, l, u_to_vec, N, M, rollout_length, rollout_mc_samples,
+                         multiagent, component_spaces, vec_to_u, certainty_equivalence):
         """
         Runs the Monte-Carlo evaluation
         """
@@ -97,10 +100,14 @@ class EvalUtil:
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
             J_b0_mu, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, M=M, l=l,
-                base_policy=True, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+                base_policy=True, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples,
+                multiagent=multiagent, component_spaces=component_spaces, u_to_vec=u_to_vec, vec_to_u=vec_to_u,
+                certainty_equivalence=certainty_equivalence)
             V_pi = POMDPUtil.monte_carlo_policy_evaluation(episodes=episodes, gamma=gamma, B_n=B_n,
                                                            B_n_indices=B_n_indices)
             J_b0_mu_tilde, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=V_pi, gamma=gamma, N=N, M=M, l=l,
-                base_policy=False, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+                base_policy=False, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples,
+                multiagent=multiagent, component_spaces=component_spaces, u_to_vec=u_to_vec, vec_to_u=vec_to_u,
+                certainty_equivalence=certainty_equivalence)
             print(f"{n} {round(J_b0_mu, 3)} {round(J_b0_mu_tilde, 3)}")

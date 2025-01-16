@@ -72,7 +72,7 @@ class POMDP:
             u_to_vec[u] = u_vec
             vec_to_u[tuple(u_vec)] = u
             u += 1
-        return U, u_to_vec, vec_to_u
+        return U, u_to_vec, vec_to_u, [[0, 1]] * K
 
     @staticmethod
     def O(n, K):

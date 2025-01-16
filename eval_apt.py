@@ -8,11 +8,11 @@ if __name__ == '__main__':
     k = 1
     seed = 29123
     eta = 2
-    N = 15
+    N = 5
     M = 300
     A = POMDP.erdos_renyi_graph(K=K, p_c=p_c)
     X, x_to_vec, vec_to_x = POMDP.X(K=K)
-    U, u_to_vec, vec_to_u = POMDP.U(K=K)
+    U, u_to_vec, vec_to_u, component_spaces = POMDP.U(K=K)
     C = POMDP.C(X=X, U=U, x_to_vec=x_to_vec, u_to_vec=u_to_vec, eta=eta)
     O, o_to_vec, vec_to_o = POMDP.O(k, K=K)
     Z = POMDP.Z(k, X=X, K=K, x_to_vec=x_to_vec, o_to_vec=o_to_vec, O=O)
@@ -24,8 +24,12 @@ if __name__ == '__main__':
     rollout_mc_samples = 100
     monte_carlo = True
     certainty_equivalence = False
+    multiagent = True
     EvalUtil.exact_eval(X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec, N=N,
                         rollout_length=rollout_length, monte_carlo=monte_carlo,
-                        rollout_mc_samples=rollout_mc_samples, certainty_equivalence=certainty_equivalence)
+                        rollout_mc_samples=rollout_mc_samples, certainty_equivalence=certainty_equivalence,
+                        multiagent=multiagent, component_spaces=component_spaces, vec_to_u=vec_to_u)
     # EvalUtil.monte_carlo_eval(X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec, N=N, M=M,
-    #                           rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+    #                           rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples,
+    #                           multiagent=multiagent, certainty_equivalence=certainty_equivalence, vec_to_u=vec_to_u,
+    #                           component_spaces=component_spaces)
