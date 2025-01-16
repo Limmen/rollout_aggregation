@@ -268,7 +268,7 @@ class POMDPUtil:
                     else:
                         J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
                             mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, gamma=gamma, J_mu=J_mu,
-                            base_policy=True, l=l, N=N, M=rollout_mc_samples, rollout_length=rollout_length,
+                            base_policy=True, l=l, N=N-t, M=rollout_mc_samples, rollout_length=rollout_length,
                             rollout_mc_samples=rollout_mc_samples)
                 else:
                     J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
@@ -294,7 +294,7 @@ class POMDPUtil:
                         else:
                             J_mu_val, _ = POMDPUtil.monte_carlo_evaluate_sequential(
                                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b_prime, B_n=B_n, gamma=gamma, J_mu=J_mu,
-                                base_policy=True, l=l, N=N, M=rollout_mc_samples, rollout_length=rollout_length,
+                                base_policy=True, l=l, N=N-t, M=rollout_mc_samples, rollout_length=rollout_length,
                                 rollout_mc_samples=rollout_mc_samples)
                     else:
                         J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
