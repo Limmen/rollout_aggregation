@@ -95,28 +95,10 @@ class EvalUtil:
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
             J_b0_mu, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, M=M, l=l,
-                base_policy = True, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+                base_policy=True, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
             V_pi = POMDPUtil.monte_carlo_policy_evaluation(episodes=episodes, gamma=gamma, B_n=B_n,
                                                            B_n_indices=B_n_indices)
             J_b0_mu_tilde, episodes = POMDPUtil.parallel_monte_carlo_evaluate(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=V_pi, gamma=gamma, N=N, M=M, l=l,
-                base_policy = False, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+                base_policy=False, rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
             print(f"{n} {round(J_b0_mu, 3)} {round(J_b0_mu_tilde, 3)}")
-            # if J_b0_mu[(tuple(b0), 0)] < J_b0_mu_tilde[(tuple(b0), 0)]:
-            #     raise ValueError("ERROR")
-            import sys
-            sys.exit()
-            # print(V_pi)
-            # print(f"{n} {abs(J_mu[b_n_0]-J_b0_mu)}")
-            # T_mu = time.time() - start
-            # print(f"{n} {time.time() - start}")
-            # J_b0_mu = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
-            #                              gamma=gamma, base=True)
-            # print(J_b0_mu)
-            # J_b0_mu_tilde = POMDPUtil.parallel_evaluate(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b0=b0, B_n=B_n, J_mu=J_mu,
-            #                                    gamma=gamma, base=False, l=l)
-            # with open(results_file, mode='a', newline='', encoding='utf-8') as file:
-            #     csv.writer(file).writerow([n, len(B_n), f"{T_mdp:.2f}", f"{T_mu:.2f}", f"{J_b0_mu:.2f}",
-            #                                f"{J_b0_mu_tilde:.2f}", l, len(U), len(O), len(X)])
-            #     print(f"n: {n}, B_n_size: {len(B_n)}, T_mdp: {T_mdp:.3f}s, T_mu: {T_mu:.3f}s, J_b0_mu: {J_b0_mu:.2f},"
-            #           f"J_b0_mu_tilde: {J_b0_mu_tilde:.2f}, l: {l}")
