@@ -8,7 +8,7 @@ if __name__ == '__main__':
     k = 1
     seed = 29123
     eta = 2
-    N = 15
+    N = 4
     M = 300
     A = POMDP.erdos_renyi_graph(K=K, p_c=p_c)
     X, x_to_vec, vec_to_x = POMDP.X(K=K)
@@ -21,8 +21,10 @@ if __name__ == '__main__':
     gamma=0.75
     l = 2
     rollout_length = N
-    rollout_mc_samples = 200
-    # EvalUtil.exact_eval(X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec, N=N,
-    #                     rollout_length=rollout_length)
-    EvalUtil.monte_carlo_eval(X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec, N=N, M=M,
-                              rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)
+    rollout_mc_samples = 100
+    monte_carlo = True
+    EvalUtil.exact_eval(X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec, N=N,
+                        rollout_length=rollout_length, monte_carlo=monte_carlo,
+                        rollout_mc_samples=rollout_mc_samples)
+    # EvalUtil.monte_carlo_eval(X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec, N=N, M=M,
+    #                           rollout_length=rollout_length, rollout_mc_samples=rollout_mc_samples)

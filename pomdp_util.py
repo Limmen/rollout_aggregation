@@ -179,7 +179,7 @@ class POMDPUtil:
 
     @staticmethod
     def exact_eval(t, b, base_policy, mu, U, B_n, P, Z, C, O, X, J_mu, gamma, l, N, certainty_equivalence,
-                   rollout_horizon, rollout_length, J):
+                   rollout_horizon, rollout_length, J, monte_carlo, rollout_mc_samples):
         """
         Computes the exact value function for either the base policy or the rollout policy
         """
@@ -198,11 +198,13 @@ class POMDPUtil:
         else:
             u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
                                             gamma=gamma, l=l, t=t, N=N, certainty_equivalence=certainty_equivalence,
-                                            rollout_length=rollout_length)
+                                            rollout_length=rollout_length, monte_carlo=monte_carlo,
+                                            rollout_mc_samples=rollout_mc_samples)
         Cost = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
         if t == 0:
             inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma,
-                       l, N, certainty_equivalence, rollout_horizon, rollout_length, J.copy()) for z in O]
+                       l, N, certainty_equivalence, rollout_horizon, rollout_length, J.copy(),
+                       monte_carlo, rollout_mc_samples) for z in O]
             with Pool() as pool:
                 results = pool.starmap(POMDPUtil.parallel_lookahead, inputs)
                 for i in range(len(results)):
@@ -215,7 +217,8 @@ class POMDPUtil:
                     t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
                     B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N,
                     certainty_equivalence=certainty_equivalence, rollout_horizon=rollout_horizon,
-                    rollout_length=rollout_length, J=J.copy())
+                    rollout_length=rollout_length, J=J.copy(), monte_carlo=monte_carlo,
+                    rollout_mc_samples=rollout_mc_samples)
                 cost_to_go = J_prime[(tuple(b_prime), t + 1)]
                 Cost += gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
                 J = J | J_prime
@@ -224,13 +227,15 @@ class POMDPUtil:
 
     @staticmethod
     def parallel_lookahead(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma, l, N,
-                           certainty_equivalence, rollout_horizon, rollout_length, J):
+                           certainty_equivalence, rollout_horizon, rollout_length, J, monte_carlo,
+                           rollout_mc_samples):
         b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
         J_prime = POMDPUtil.exact_eval(
             t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
             B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N,
             certainty_equivalence=certainty_equivalence, rollout_horizon=rollout_horizon,
-            rollout_length=rollout_length, J=J.copy())
+            rollout_length=rollout_length, J=J.copy(), monte_carlo=monte_carlo,
+            rollout_mc_samples=rollout_mc_samples)
         cost_to_go = J_prime[(tuple(b_prime), t + 1)]
         J = J | J_prime
         return gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go, J
