@@ -20,9 +20,9 @@ if __name__ == '__main__':
     b0 = POMDP.b0(K=K, X=X, vec_to_x=vec_to_x)
     gamma=0.75
     l = 1
-    rollout_length = 2
+    rollout_length = N
     rollout_mc_samples = 100
-    monte_carlo = False
+    monte_carlo = True
     certainty_equivalence = False
     EvalUtil.exact_eval(X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec, N=N,
                         rollout_length=rollout_length, monte_carlo=monte_carlo,
