@@ -58,7 +58,13 @@ class EvalUtil:
         """
         ns = list(range(1, 200))
         for n in ns:
-            B_n = POMDPUtil.B_n(n=n, X=X)
+            print("Creating BN")
+            B_n = []
+            for x in X:
+                b = [0]*len(X)
+                b[x] =1
+                B_n.append(b)
+            # B_n = POMDPUtil.B_n(n=n, X=X)
             # B_n_indices = []
             # for i in range(len(B_n)):
             #     B_n_indices.append(i)
@@ -67,6 +73,7 @@ class EvalUtil:
             # C_b = POMDPUtil.C_b(B_n=B_n, X=X, U=U, C=C)
             # mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
             #                                         pi=False, verbose=False, u_to_vec=u_to_vec)
+            print(f"Creating MU: {len(B_n)}")
             B_n_indices = []
             mu = []
             for i in range(len(B_n)):
@@ -79,6 +86,7 @@ class EvalUtil:
             #     base_policy=True, t=0, certainty_equivalence=False, rollout_horizon=N,
             #     rollout_length=rollout_length, J={}, monte_carlo=monte_carlo, rollout_mc_samples=rollout_mc_samples,
             #     multiagent=multiagent, u_to_vec=u_to_vec, component_spaces=component_spaces, vec_to_u=vec_to_u)
+            print("START")
             J_b0_mu = {}
             J_b0_mu_tilde = POMDPUtil.exact_eval(
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=J_b0_mu, gamma=gamma, N=N, base_policy=False,

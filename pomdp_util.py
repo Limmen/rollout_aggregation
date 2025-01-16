@@ -282,6 +282,7 @@ class POMDPUtil:
             rollout_value = 0
             base_u = u_to_vec[POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)]
             for agent in range(len(component_spaces)):
+                print(f"agent {agent}/{len(component_spaces)}")
                 u_agent = aggregate_u.copy()
                 u_agent.append(-1)
                 for agent_i in range(agent + 1, len(component_spaces)):
@@ -290,6 +291,7 @@ class POMDPUtil:
                 for local_u in component_spaces[agent]:
                     u_agent[agent] = local_u
                     u = vec_to_u[tuple(u_agent)]
+                    print("OPT")
                     cost = POMDPUtil.rollout_optimization(certainty_equivalence=certainty_equivalence, b=b,
                                                           u=u, C=C, P=P, X=X, Z=Z, O=O, monte_carlo=monte_carlo, l=l,
                                                           B_n=B_n, U=U, J_mu=J_mu, gamma=gamma, N=N,

@@ -2,7 +2,7 @@ from apt_pomdp import POMDP
 from eval_util import EvalUtil
 
 if __name__ == '__main__':
-    K = 4
+    K = 5
     p_a = 0.2
     p_c = 0.2
     k = 1
