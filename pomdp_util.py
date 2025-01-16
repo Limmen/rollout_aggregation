@@ -156,7 +156,6 @@ class POMDPUtil:
         Monte-Carlo evaluation to estimate J for a base or rollout policy
         """
         np.random.seed(seed)
-        x = np.random.choice(X, p=b0)
         b = b0
         Cost = 0
         t = 0
@@ -168,12 +167,12 @@ class POMDPUtil:
                 u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
                                                 gamma=gamma, l=l, N=N, t=t, rollout_length=rollout_length,
                                                 rollout_mc_samples=rollout_mc_samples, monte_carlo=True)
-                print(f"{t}/{N - 1}")
+                print(f"{t}/{N - 1}, {u}")
                 # print(f"{t}/{N-1}, u_tilde: {u}, u_base: {POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)}, b: {b}")
-            Cost += math.pow(gamma, t) * C[x][u]
-            episode.append((B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b)), u, C[x][u]))
-            x = int(np.random.choice(X, p=P[u][x]))
-            z = np.random.choice(O, p=Z[x])
+            Cost += math.pow(gamma, t) * POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
+            episode.append((B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b)), u,
+                            POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)))
+            z = np.random.choice(O, p=[POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) for z in O])
             b = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
             t += 1
         return (Cost, episode)
