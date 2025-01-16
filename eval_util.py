@@ -75,7 +75,7 @@ class EvalUtil:
             mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
 
-            N=12
+            N=5
             M=1
             # start = time.time()
             J_b0_mu = POMDPUtil.exact_eval(
@@ -97,8 +97,8 @@ class EvalUtil:
                 mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b0, B_n=B_n, J_mu=None, gamma=gamma, N=N, base_policy=False,
                 l=l, t=0)
             print(f"{n} {round(J_b0_mu, 3)} {round(J_b0_mu_tilde, 3)}")
-            # if J_b0_mu < J_b0_mu_tilde:
-            #     raise ValueError("ERROR")
+            if J_b0_mu < J_b0_mu_tilde:
+                raise ValueError("ERROR")
             # import sys
             # sys.exit()
             # print(V_pi)

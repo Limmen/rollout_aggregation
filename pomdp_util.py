@@ -197,17 +197,31 @@ class POMDPUtil:
             #     import sys
             #     sys.exit()
         Cost = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
-        for z in O:
-            if not base_policy and t == 0:
-                print(f"{z}/{len(O)}")
-            b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
-            cost_to_go = POMDPUtil.exact_eval(
-                t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
-                B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N)
-            Cost += gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
+        if t == 0:
+            inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma, l, N) for z in O]
+            with Pool() as pool:
+                costs = pool.starmap(POMDPUtil.parallel_lookahead, inputs)
+                Cost = sum(costs)
+        else:
+            for z in O:
+                if not base_policy and t == 0:
+                    print(f"{z}/{len(O)}")
+                b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
+                cost_to_go = POMDPUtil.exact_eval(
+                    t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
+                    B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N)
+                Cost += gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
         # if not base_policy:
         #     print(f"{t}/{N}")
         return Cost
+
+    @staticmethod
+    def parallel_lookahead(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma, l, N):
+        b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
+        cost_to_go = POMDPUtil.exact_eval(
+            t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
+            B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N)
+        return gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
 
     @staticmethod
     def base_policy(mu, U, b, B_n):
