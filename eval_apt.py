@@ -2,7 +2,7 @@ from apt_pomdp import POMDP
 from eval_util import EvalUtil
 
 if __name__ == '__main__':
-    K = 1
+    K = 4
     p_a = 0.2
     p_c = 0.2
     k = 1
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     rollout_length = N
     rollout_mc_samples = 100
     monte_carlo = True
-    certainty_equivalence = False
+    certainty_equivalence = True
     multiagent = True
     EvalUtil.exact_eval(X=X, b0=b0, U=U, O=O, P=P, Z=Z, C=C, gamma=gamma, l=l, u_to_vec=u_to_vec, N=N,
                         rollout_length=rollout_length, monte_carlo=monte_carlo,
