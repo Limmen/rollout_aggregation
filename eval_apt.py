@@ -8,7 +8,7 @@ if __name__ == '__main__':
     k = 1
     seed = 29123
     eta = 2
-    N = 3
+    N = 15
     M = 300
     A = POMDP.erdos_renyi_graph(K=K, p_c=p_c)
     X, x_to_vec, vec_to_x = POMDP.X(K=K)
