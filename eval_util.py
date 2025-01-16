@@ -60,8 +60,10 @@ class EvalUtil:
         # with open(results_file, mode='w', newline='', encoding='utf-8') as file:
         #     csv.writer(file).writerow(["n", "B_n", "T_mdp", "T_mu", "J_mu", "J_mu_tilde", "l", "|U|", "|O|", "X"])
         ns = list(range(1, 200))
-        # ns = [7]
+        # ns = [2]
         # #12
+        # import sys
+        # sys.setrecursionlimit(1000000)
         for n in ns:
             start = time.time()
             B_n = POMDPUtil.B_n(n=n, X=X)
@@ -75,7 +77,7 @@ class EvalUtil:
             mu, J_mu = EvalUtil.compute_base_policy(B_n=B_n, P_b=P_b, C_b=C_b, U=U, b_n_0=b_n_0, gamma=gamma,
                                                     pi=False, verbose=False, u_to_vec=u_to_vec)
 
-            N=5
+            N=12
             M=1
             # start = time.time()
             J_b0_mu = POMDPUtil.exact_eval(

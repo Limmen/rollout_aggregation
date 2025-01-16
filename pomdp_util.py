@@ -178,7 +178,7 @@ class POMDPUtil:
 
     @staticmethod
     def exact_eval(t, b, base_policy, mu, U, B_n, P, Z, C, O, X, J_mu, gamma, l, N):
-        if t == N:
+        if t >= N:
             return 0
         if base_policy:
             u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
@@ -186,13 +186,13 @@ class POMDPUtil:
             # print(f"{t}/{N}")
             u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
                                             gamma=gamma, l=l, t=t, N=N)
-            # if u != POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n) and t == 4:
+            # if u != POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n):
             #     # u=POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
-            #     J_mu_base = POMDPUtil.exact_eval(
-            #         mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=[1.0, 0.0], B_n=B_n, J_mu=None, gamma=gamma,
-            #         N=N, base_policy=True, l=-1, t=5)
-            #     c = POMDPUtil.expected_cost(b=b, u=1, C=C, X=X)
-            #     print(gamma*J_mu_base + c)
+            #     # J_mu_base = POMDPUtil.exact_eval(
+            #     #     mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=[1.0, 0.0], B_n=B_n, J_mu=None, gamma=gamma,
+            #     #     N=N, base_policy=True, l=-1, t=5)
+            #     # c = POMDPUtil.expected_cost(b=b, u=1, C=C, X=X)
+            #     # print(gamma*J_mu_base + c)
             #     print(f"u_tilde: {u}, base: {POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)}, t: {t}")
             #     import sys
             #     sys.exit()
@@ -201,7 +201,7 @@ class POMDPUtil:
             inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma, l, N) for z in O]
             with Pool() as pool:
                 costs = pool.starmap(POMDPUtil.parallel_lookahead, inputs)
-                Cost = sum(costs)
+                Cost += sum(costs)
         else:
             for z in O:
                 if not base_policy and t == 0:
@@ -211,6 +211,14 @@ class POMDPUtil:
                     t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
                     B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N)
                 Cost += gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
+        # for z in O:
+        #     if not base_policy and t == 0:
+        #         print(f"{z}/{len(O)}")
+        #     b_prime = POMDPUtil.belief_operator(z=z, u=u, b=b, X=X, Z=Z, P=P)
+        #     cost_to_go = POMDPUtil.exact_eval(
+        #         t=t + 1, b=b_prime, base_policy=base_policy, mu=mu, U=U,
+        #         B_n=B_n, P=P, Z=Z, C=C, O=O, X=X, J_mu=J_mu, gamma=gamma, l=l, N=N)
+        #     Cost += gamma * POMDPUtil.P_z_b_u(b=b, z=z, Z=Z, X=X, U=U, P=P, u=u) * cost_to_go
         # if not base_policy:
         #     print(f"{t}/{N}")
         return Cost
@@ -235,6 +243,9 @@ class POMDPUtil:
         """
         Returns \tilde{\mu}[b]
         """
+        if t >= N:
+            return random.choice(U), 0
+        # print(f"rollout l: {l}")
         Q_b = np.zeros(len(U))
         for u in U:
             # print(f"{u}/{len(U)}, l: {l}")
@@ -254,10 +265,13 @@ class POMDPUtil:
                         # print(f"J_mu_val: {J_mu_val}, u: {u}")
                     else:
                         J_mu_val = POMDPUtil.rollout_policy(U=U, O=O, Z=Z, X=X, P=P, b=b_prime,
-                                                            C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l - 1, mu=mu,
-                                                            t=t + 1, N=N)[1]
+                                                            C=C, J_mu=J_mu, gamma=gamma, B_n=B_n, l=l-1, mu=mu,
+                                                            t=t+1, N=N)[1]
                     Q_b[u] += P_b_z_u * gamma * J_mu_val
                     # print(f"J_mu_val: {J_mu_val}")
+        # if t == 4 and l == 2:
+        #     print(Q_b)
+        #     print(POMDPUtil.expected_cost(b=b, u=u, C=C, X=X))
         u_star = int(np.argmin(Q_b))
         return u_star, Q_b[u_star]
 
