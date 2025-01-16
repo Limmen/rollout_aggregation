@@ -177,7 +177,6 @@ class POMDPUtil:
                                                 certainty_equivalence=certainty_equivalence, u_to_vec=u_to_vec,
                                                 vec_to_u=vec_to_u)
                 print(f"{t}/{N - 1}, {u}")
-                # print(f"{t}/{N-1}, u_tilde: {u}, u_base: {POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)}, b: {b}")
             Cost += math.pow(gamma, t) * POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
             episode.append((B_n.index(POMDPUtil.nearest_neighbor(B_n=B_n, b=b)), u,
                             POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)))
@@ -206,15 +205,11 @@ class POMDPUtil:
         if base_policy:
             u = POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)
         else:
-            start = time.time()
             u, _ = POMDPUtil.rollout_policy(mu=mu, P=P, Z=Z, C=C, O=O, X=X, U=U, b=b, B_n=B_n, J_mu=J_mu,
                                             gamma=gamma, l=l, t=t, N=N, certainty_equivalence=certainty_equivalence,
                                             rollout_length=rollout_length, monte_carlo=monte_carlo,
                                             rollout_mc_samples=rollout_mc_samples, multiagent=multiagent,
                                             u_to_vec=u_to_vec, component_spaces=component_spaces, vec_to_u=vec_to_u)
-            print(time.time()-start)
-            import sys
-            sys.exit()
         Cost = POMDPUtil.expected_cost(b=b, u=u, C=C, X=X)
         if t == 0:
             inputs = [(z, u, b, X, Z, P, base_policy, mu, U, t, B_n, C, O, J_mu, gamma,
@@ -282,7 +277,6 @@ class POMDPUtil:
             rollout_value = 0
             base_u = u_to_vec[POMDPUtil.base_policy(mu=mu, U=U, b=b, B_n=B_n)]
             for agent in range(len(component_spaces)):
-                print(f"agent {agent}/{len(component_spaces)}")
                 u_agent = aggregate_u.copy()
                 u_agent.append(-1)
                 for agent_i in range(agent + 1, len(component_spaces)):
@@ -291,7 +285,6 @@ class POMDPUtil:
                 for local_u in component_spaces[agent]:
                     u_agent[agent] = local_u
                     u = vec_to_u[tuple(u_agent)]
-                    print("OPT")
                     cost = POMDPUtil.rollout_optimization(certainty_equivalence=certainty_equivalence, b=b,
                                                           u=u, C=C, P=P, X=X, Z=Z, O=O, monte_carlo=monte_carlo, l=l,
                                                           B_n=B_n, U=U, J_mu=J_mu, gamma=gamma, N=N,
